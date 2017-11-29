@@ -11819,10 +11819,12 @@ int SetPorts()
 
   if (control -> ProxyMode == proxy_client) {
     slavePort.setDefaultTCPPort(DEFAULT_NX_SLAVE_PORT_CLIENT_OFFSET + proxyPort);
-    useSlaveSocket = slavePort.enabled();
   } else {
     slavePort.setDefaultTCPPort(DEFAULT_NX_SLAVE_PORT_SERVER_OFFSET + proxyPort);
   }
+  
+  slavePort.validateSpec();
+  useSlaveSocket = slavePort.enabled();
 
 #ifdef TEST
   *logofs << "Loop: Using slave port '" << slavePort
