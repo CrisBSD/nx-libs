@@ -15,7 +15,6 @@ nxproxy_LDADD =						\
 
 nxproxy_LDFLAGS =					\
     $(PTHREAD_LDFLAGS)					\
-    -Wl,--enable-new-dtags				\
     $(NULL)
 
 nxproxy_CFLAGS =					\
