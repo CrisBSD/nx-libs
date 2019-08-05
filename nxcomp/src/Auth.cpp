@@ -384,7 +384,7 @@ int Auth::getCookie()
 
     char *cookie = NULL;
 
-    cookie = index(line, ':');
+    cookie = strchr(line, ':');
 
     if (cookie == NULL)
     {

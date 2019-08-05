@@ -4217,7 +4217,7 @@ int ListenConnectionAny(sockaddr *addr, socklen_t addrlen, const char *label)
       goto SetupSocketError;
     }
 
-  if (bind(newFD, addr, addrlen) == -1)
+  if (::bind(newFD, addr, addrlen) == -1)
   {
     nxfatal << "Loop: PANIC! Call to bind failed for " << label
             << ". Error is " << EGET()
