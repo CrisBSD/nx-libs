@@ -10,7 +10,7 @@
 %endif
 
 Name:           nx-libs
-Version:        3.5.99.17
+Version:        3.5.99.23
 Release:        0.0build1%{?dist}
 Summary:        NX X11 protocol compression libraries
 
@@ -459,6 +459,10 @@ rm -r %{buildroot}%{_includedir}/nx-X11/Xtrans
 #Remove our shared libraries' .la files before wrapping up the packages
 rm %{buildroot}%{_libdir}/*.la
 
+#FIXME: leaving nxdialog integration to Ionic
+rm -f %{buildroot}%{_bindir}/nxdialog
+rm -f %{buildroot}%{_datadir}/man/man1/nxdialog.1*
+
 %if 0%{?fdupes:1}
 %fdupes %{buildroot}%{_prefix}
 %endif
@@ -594,7 +598,6 @@ rm %{buildroot}%{_libdir}/*.la
 %{_includedir}/nx-X11/extensions/xfixesproto.h
 %{_includedir}/nx-X11/extensions/xfixeswire.h
 %{_includedir}/nx-X11/extensions/xtestconst.h
-%{_includedir}/nx-X11/extensions/xtestext1.h
 %{_includedir}/nx-X11/extensions/xteststr.h
 
 %files -n nxagent
@@ -608,7 +611,6 @@ rm %{buildroot}%{_libdir}/*.la
 %{_libdir}/nx/bin/nxagent
 %dir %{_libdir}/nx/X11
 %{_libdir}/nx/X11/libX11.so*
-%{_datadir}/pixmaps/nxagent.xpm
 %dir %{_datadir}/nx
 %{_datadir}/nx/VERSION.nxagent
 %{_datadir}/man/man1/nxagent.1*
@@ -624,5 +626,5 @@ rm %{buildroot}%{_libdir}/*.la
 
 
 %changelog
-* Thu Jan 29 2015 Mike Gabriel <mike.gabriel@das-netzwerkteam.de> 3.5.99.1
+* Thu Jan 30 2020 Mike Gabriel <mike.gabriel@das-netzwerkteam.de> 3.5.99.23
 - See upstream ChangeLog and debian/changelog for details.

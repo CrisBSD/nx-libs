@@ -253,11 +253,18 @@ ProcChangeProperty(ClientPtr client)
     else
 	return client->noClientException;
 }
+#endif /* NXAGENT_SERVER */
 
 int
+#ifdef NXAGENT_SERVER
+Xorg_ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
+                     int mode, unsigned long len, void * value,
+                     Bool sendevent)
+#else
 ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format, 
                      int mode, unsigned long len, void * value, 
                      Bool sendevent)
+#endif
 {
     PropertyPtr pProp;
     int sizeInBytes;
@@ -367,7 +374,6 @@ ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
     }
     return(Success);
 }
-#endif /* NXAGENT_SERVER */
 
 int
 DeleteProperty(WindowPtr pWin, Atom propName)
@@ -655,6 +661,7 @@ ProcListProperties(ClientPtr client)
     return(client->noClientException);
 }
 
+#ifndef NXAGENT_SERVER
 int 
 ProcDeleteProperty(register ClientPtr client)
 {
@@ -692,3 +699,4 @@ ProcDeleteProperty(register ClientPtr client)
     else
 	return(result);
 }
+#endif

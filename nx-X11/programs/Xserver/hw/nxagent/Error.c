@@ -42,6 +42,7 @@
 
 #include "Error.h"
 #include "Args.h"
+#include "Utils.h"
 
 /*
  * Set here the required log level.
@@ -71,32 +72,29 @@ static int nxagentStderrBackup = -1;
 
 static int nxagentClientsLog = -1;
 
-#define DEFAULT_STRING_LENGTH 256
-
-
 /*
  * Clients log file name.
  */
 
-char nxagentClientsLogName[NXAGENTCLIENTSLOGNAMELENGTH] = { 0 };
+char *nxagentClientsLogName = NULL;
 
 /*
  * User's home.
  */
 
-static char nxagentHomeDir[DEFAULT_STRING_LENGTH] = { 0 };
+static char *nxagentHomeDir = NULL;
 
 /*
  * NX root directory.
  */
 
-static char nxagentRootDir[DEFAULT_STRING_LENGTH] = { 0 };
+static char *nxagentRootDir = NULL;
 
 /*
  * Session log Directory.
  */
 
-static char nxagentSessionDir[DEFAULT_STRING_LENGTH] = { 0 };
+static char *nxagentSessionDir = NULL;
 
 void nxagentGetClientsPath(void);
 
@@ -116,10 +114,11 @@ int nxagentErrorHandler(Display *dpy, XErrorEvent *event)
   return 0;
 }
 
-/* copied from XlibInt.c */
-/* extension stuff roughly commented out */
-/* FIXME: why? What's wrong with printing extension stuff?
-   We could drop this in favour of _XprintDefaultError then! */
+/* copied from XlibInt.c:_XprintDefaultError
+ * We cannot use the whole function because it requires XlibInt
+ * internals. And we cannot call _XPrintDefaultError because it
+ * is not exported.
+ */
 static int nxagentPrintError(dpy, event, fp)
     Display *dpy;
     XErrorEvent *event;
@@ -128,11 +127,11 @@ static int nxagentPrintError(dpy, event, fp)
     char buffer[BUFSIZ];
     char mesg[BUFSIZ];
     char number[32];
-    char *mtype = "XlibMessage";
-    /*
+    const char *mtype = "XlibMessage";
+#ifndef NXAGENT_SERVER
     register _XExtension *ext = (_XExtension *)NULL;
     _XExtension *bext = (_XExtension *)NULL;
-    */
+#endif
     XGetErrorText(dpy, event->error_code, buffer, BUFSIZ);
     XGetErrorDatabaseText(dpy, mtype, "XError", "X Error", mesg, BUFSIZ);
     (void) fprintf(fp, "%s:  %s\n  ", mesg, buffer);
@@ -143,14 +142,16 @@ static int nxagentPrintError(dpy, event, fp)
 	snprintf(number, sizeof(number), "%d", event->request_code);
 	XGetErrorDatabaseText(dpy, "XRequest", number, "", buffer, BUFSIZ);
     } else {
-      /*	for (ext = dpy->ext_procs;
+#ifndef NXAGENT_SERVER
+	for (ext = dpy->ext_procs;
 	     ext && (ext->codes.major_opcode != event->request_code);
 	     ext = ext->next)
 	  ;
-	if (ext)
+	if (ext) {
 	    strncpy(buffer, ext->name, BUFSIZ);
-	else
-      */
+	    buffer[BUFSIZ - 1] = '\0';
+        } else
+#endif
 	    buffer[0] = '\0';
     }
     (void) fprintf(fp, " (%s)\n", buffer);
@@ -159,19 +160,19 @@ static int nxagentPrintError(dpy, event, fp)
 			      mesg, BUFSIZ);
 	fputs("  ", fp);
 	(void) fprintf(fp, mesg, event->minor_code);
-	/*
+#ifndef NXAGENT_SERVER
 	if (ext) {
 	    snprintf(mesg, sizeof(mesg), "%s.%d", ext->name, event->minor_code);
 	    XGetErrorDatabaseText(dpy, "XRequest", mesg, "", buffer, BUFSIZ);
 	    (void) fprintf(fp, " (%s)", buffer);
 	}
-	*/
+#endif
 	fputs("\n", fp);
     }
     if (event->error_code >= 128) {
 	/* kludge, try to find the extension that caused it */
 	buffer[0] = '\0';
-	/*
+#ifndef NXAGENT_SERVER
 	for (ext = dpy->ext_procs; ext; ext = ext->next) {
 	    if (ext->error_string)
 		(*ext->error_string)(dpy, event->error_code, &ext->codes,
@@ -189,7 +190,7 @@ static int nxagentPrintError(dpy, event, fp)
 	    snprintf(buffer, sizeof(buffer), "%s.%d", bext->name,
 		    event->error_code - bext->codes.first_error);
 	else
-	*/
+#endif
 	    strcpy(buffer, "Value");
 	XGetErrorDatabaseText(dpy, mtype, buffer, "", mesg, BUFSIZ);
 	if (mesg[0]) {
@@ -198,12 +199,12 @@ static int nxagentPrintError(dpy, event, fp)
 	    fputs("\n", fp);
 	}
 	/* let extensions try to print the values */
-	/*
+#ifndef NXAGENT_SERVER
 	for (ext = dpy->ext_procs; ext; ext = ext->next) {
 	    if (ext->error_values)
 		(*ext->error_values)(dpy, event, fp);
 	}
-	*/
+#endif
     } else if ((event->error_code == BadWindow) ||
 	       (event->error_code == BadPixmap) ||
 	       (event->error_code == BadCursor) ||
@@ -231,10 +232,12 @@ static int nxagentPrintError(dpy, event, fp)
 			  mesg, BUFSIZ);
     fputs("  ", fp);
     (void) fprintf(fp, mesg, event->serial);
-    /*    XGetErrorDatabaseText(dpy, mtype, "CurrentSerial", "Current Serial #%d",
+#ifndef NXAGENT_SERVER
+    XGetErrorDatabaseText(dpy, mtype, "CurrentSerial", "Current Serial #%d",
 			  mesg, BUFSIZ);
     fputs("\n  ", fp);
-    (void) fprintf(fp, mesg, dpy->request); */
+    (void) fprintf(fp, mesg, (unsigned long long)(X_DPY_GET_REQUEST(dpy)));
+#endif
     fputs("\n", fp);
     if (event->error_code == BadImplementation) return 0;
     return 1;
@@ -249,12 +252,12 @@ int nxagentExitHandler(const char *message)
 
 void nxagentOpenClientsLogFile(void)
 {
-  if (*nxagentClientsLogName == '\0')
+  if (!nxagentClientsLogName)
   {
     nxagentGetClientsPath();
   }
 
-  if (nxagentClientsLogName != NULL && *nxagentClientsLogName != '\0')
+  if (nxagentClientsLogName && *nxagentClientsLogName != '\0')
   {
     nxagentClientsLog = open(nxagentClientsLogName, O_RDWR | O_CREAT | O_APPEND, 0600);
 
@@ -322,132 +325,118 @@ void nxagentEndRedirectToClientsLog(void)
   nxagentCloseClientsLogFile();
 }
 
+/*
+ * returns a pointer to the static nxagentHomeDir. The caller must not free
+ * this pointer!
+ */
 char *nxagentGetHomePath(void)
 {
-  char *homeEnv;
-  char *homePath;
-
-  if (*nxagentHomeDir == '\0')
+  if (!nxagentHomeDir)
   {
     /*
      * Check the NX_HOME environment.
      */
 
-    homeEnv = getenv("NX_HOME");
+    char *homeEnv = getenv("NX_HOME");
 
-    if (homeEnv == NULL || *homeEnv == '\0')
+    if (!homeEnv || *homeEnv == '\0')
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentGetHomePath: No environment for NX_HOME.\n");
+      fprintf(stderr, "%s: No environment for NX_HOME.\n", __func__);
       #endif
 
       homeEnv = getenv("HOME");
 
-      if (homeEnv == NULL || *homeEnv == '\0')
+      if (!homeEnv || *homeEnv == '\0')
       {
         #ifdef PANIC
-        fprintf(stderr, "nxagentGetHomePath: PANIC! No environment for HOME.\n");
+        fprintf(stderr, "%s: PANIC! No environment for HOME.\n", __func__);
         #endif
 
         return NULL;
       }
     }
 
-    if (strlen(homeEnv) > DEFAULT_STRING_LENGTH - 1)
+    /* FIXME: this is currently never freed as it is thought to last
+       over the complete runtime. We should add a free call at shutdown
+       eventually... */
+    nxagentHomeDir = strdup(homeEnv);
+    if (!nxagentHomeDir)
     {
       #ifdef PANIC
-      fprintf(stderr, "nxagentGetHomePath: PANIC! Invalid value for the NX "
-                  "home directory '%s'.\n", homeEnv);
+      fprintf(stderr, "%s: PANIC! Can't allocate memory for the home path.\n", __func__);
       #endif
+      return NULL;
     }
 
-    snprintf(nxagentHomeDir, DEFAULT_STRING_LENGTH, "%s", homeEnv);
-
     #ifdef TEST
-    fprintf(stderr, "nxagentGetHomePath: Assuming NX user's home directory '%s'.\n", nxagentHomeDir);
+    fprintf(stderr, "%s: Assuming NX user's home directory '%s'.\n", __func__, nxagentHomeDir);
     #endif
   }
 
-  homePath = strdup(nxagentHomeDir);
-
-  if (homePath == NULL)
-  {
-    #ifdef PANIC
-    fprintf(stderr, "nxagentGetHomePath: PANIC! Can't allocate memory for the home path.\n");
-    #endif
-
-    return NULL;
-  }
-
-  return homePath;
+  return nxagentHomeDir;
 }
 
+/*
+ * returns a pointer to the static nxagentRootDir. The caller must not free
+ * this pointer!
+ */
 char *nxagentGetRootPath(void)
 {
-  char *rootEnv;
-  char *homeEnv;
-  char *rootPath;
-
-  struct stat dirStat;
-
-  if (*nxagentRootDir == '\0')
+  if (!nxagentRootDir)
   {
     /*
      * Check the NX_ROOT environment.
      */
 
-    rootEnv = getenv("NX_ROOT");
+    char *rootEnv = getenv("NX_ROOT");
 
-    if (rootEnv == NULL || *rootEnv == '\0')
+    if (!rootEnv || *rootEnv == '\0')
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentGetRootPath: WARNING! No environment for NX_ROOT.\n");
+      fprintf(stderr, "%s: WARNING! No environment for NX_ROOT.\n", __func__);
       #endif
 
       /*
-       * We will determine the root NX directory
-       * based on the NX_HOME or HOME directory
-       * settings.
+       * We will determine the root NX directory based on the NX_HOME
+       * or HOME directory settings.
        */
 
-      homeEnv = nxagentGetHomePath();
+      char *homeEnv = nxagentGetHomePath();
 
-      if (homeEnv == NULL)
+      if (!homeEnv)
       {
         return NULL;
       }
 
-      if (strlen(homeEnv) > DEFAULT_STRING_LENGTH -
-              strlen("/.nx") - 1)
+      /* FIXME: this is currently never freed as it is thought to last
+         over the complete runtime. We should add a free call at shutdown
+         eventually... */
+      int len = asprintf(&nxagentRootDir, "%s/.nx", homeEnv);
+      if (len == -1)
       {
         #ifdef PANIC
-        fprintf(stderr, "nxagentGetRootPath: PANIC! Invalid value for the NX "
-                    "home directory '%s'.\n", homeEnv);
+        fprintf(stderr, "%s: could not build NX Root Dir string\n", __func__);
         #endif
-
-        free(homeEnv);
 
         return NULL;
       }
 
       #ifdef TEST
-      fprintf(stderr, "nxagentGetRootPath: Assuming NX root directory in '%s'.\n", homeEnv);
+      fprintf(stderr, "%s: Assuming NX root directory in '%s'.\n", __func__, homeEnv);
       #endif
-
-      snprintf(nxagentRootDir, DEFAULT_STRING_LENGTH, "%s/.nx", homeEnv);
-
-      free(homeEnv);
 
       /*
        * Create the NX root directory.
        */
 
+      struct stat dirStat;
       if ((stat(nxagentRootDir, &dirStat) == -1) && (errno == ENOENT))
       {
         if (mkdir(nxagentRootDir, 0777) < 0 && (errno != EEXIST))
         {
           #ifdef PANIC
-          fprintf(stderr, "nxagentGetRootPath: PANIC! Can't create directory '%s'. Error is %d '%s'.\n",
+          fprintf(stderr, "%s: PANIC! Can't create directory '%s'. Error is %d '%s'.\n", __func__,
                       nxagentRootDir, errno, strerror(errno));
           #endif
 
@@ -457,152 +446,111 @@ char *nxagentGetRootPath(void)
     }
     else
     {
-      if (strlen(rootEnv) > DEFAULT_STRING_LENGTH - 1)
-      {
-        #ifdef PANIC
-         fprintf(stderr, "nxagentGetRootPath: PANIC! Invalid value for the NX root directory '%s'.\n",
-                     rootEnv);
-        #endif
-
-        return NULL;
-      }
-
-      snprintf(nxagentRootDir, DEFAULT_STRING_LENGTH, "%s", rootEnv);
+      /* FIXME: this is currently never freed as it is thought to last
+         over the complete runtime. We should add a free call
+         eventually... */
+      nxagentRootDir = strdup(rootEnv);
     }
 
     #ifdef TEST
-    fprintf(stderr, "nxagentGetRootPath: Assuming NX root directory '%s'.\n",
+    fprintf(stderr, "%s: Assuming NX root directory '%s'.\n", __func__,
                 nxagentRootDir);
     #endif
 
   }
 
-  rootPath = strdup(nxagentRootDir);
-
-  if (rootPath == NULL)
-  {
-    #ifdef PANIC
-    fprintf(stderr, "nxagentGetRootPath: Can't allocate memory for the root path.\n");
-    #endif
-
-    return NULL;
-  }
-
-  return rootPath;
+  return nxagentRootDir;
 }
 
+/*
+ * returns a pointer to the static nxagentSessionDir. The caller must not free
+ * this pointer!
+ */
 char *nxagentGetSessionPath(void)
 {
-
-  char *rootPath;
-  char *sessionPath;
-
-  struct stat dirStat;
-
-  if (*nxagentSessionDir == '\0')
+  if (!nxagentSessionDir)
   {
     /*
-     * If nxagentSessionId does not exist we
-     * assume that the sessionPath cannot be
-     * realized and do not use the clients
-     * log file.
+     * If nxagentSessionId does not exist we assume that the
+     * sessionPath cannot be realized and do not use the clients log
+     * file.
      */
 
     if (*nxagentSessionId == '\0')
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentGetSessionPath: Session id does not exist. Assuming session path NULL.\n");
+      fprintf(stderr, "%s: Session id does not exist. Assuming session path NULL.\n", __func__);
       #endif
 
       return NULL;
     }
 
-    rootPath = nxagentGetRootPath();
+    char *rootPath = nxagentGetRootPath();
 
-    if (rootPath == NULL)
+    if (!rootPath)
     {
       return NULL;
     }
 
-    /* FIXME: necessary? */
-    snprintf(nxagentSessionDir, DEFAULT_STRING_LENGTH, "%s", rootPath);
+    /* FIXME: this is currently only freed if the dir cannot be created
+       and will last over the runtime otherwise.  We should add a free call
+       eventually... */
+    int len = asprintf(&nxagentSessionDir, "%s/C-%s", rootPath, nxagentSessionId);
 
-    if (strlen(nxagentSessionDir) + strlen("/C-") + strlen(nxagentSessionId) > DEFAULT_STRING_LENGTH - 1)
+    if (len == -1)
     {
       #ifdef PANIC
-      fprintf(stderr, "nxagentGetSessionPath: PANIC!: Invalid value for the NX session directory '%s'.\n",
-                  nxagentSessionDir);
+      fprintf(stderr, "%s: PANIC!: Could not alloc sessiondir string'.\n", __func__);
       #endif
-
-      free(rootPath);
 
       return NULL;
     }
 
-    snprintf(nxagentSessionDir, DEFAULT_STRING_LENGTH, "%s/C-%s", rootPath, nxagentSessionId);
-
-    free(rootPath);
-
+    struct stat dirStat;
     if ((stat(nxagentSessionDir, &dirStat) == -1) && (errno == ENOENT))
     {
       if (mkdir(nxagentSessionDir, 0777) < 0 && (errno != EEXIST))
       {
         #ifdef PANIC
-        fprintf(stderr, "nxagentGetSessionPath: PANIC! Can't create directory '%s'. Error is %d '%s'.\n",
+        fprintf(stderr, "%s: PANIC! Can't create directory '%s'. Error is %d '%s'.\n", __func__,
                     nxagentSessionDir, errno, strerror(errno));
         #endif
 
+        SAFE_free(nxagentSessionDir);
         return NULL;
       }
     }
 
     #ifdef TEST
-    fprintf(stderr, "nxagentGetSessionPath: NX session is '%s'.\n",
-                nxagentSessionDir);
+    fprintf(stderr, "%s: NX session is '%s'.\n", __func__, nxagentSessionDir);
     #endif
-
   }
 
-  sessionPath = strdup(nxagentSessionDir);
-
-  if (sessionPath == NULL)
-  {
-    #ifdef PANIC
-    fprintf(stderr, "nxagentGetSessionPath:: PANIC! Can't allocate memory for the session path.\n");
-    #endif
-
-    return NULL;
-  }
-
-  return sessionPath;
+  return nxagentSessionDir;
 }
 
 void nxagentGetClientsPath(void)
 {
-
-  if (*nxagentClientsLogName == '\0')
+  if (!nxagentClientsLogName)
   {
     char *sessionPath = nxagentGetSessionPath();
 
-    if (sessionPath == NULL)
+    if (!sessionPath)
     {
       return;
     }
 
-    if (strlen(sessionPath) + strlen("/clients") > NXAGENTCLIENTSLOGNAMELENGTH - 1)
+    /* FIXME: this is currently never freed as it is thought to last
+       over the complete runtime. We should add a free call at shutdown
+       eventually... */
+    int len = asprintf(&nxagentClientsLogName, "%s/clients", sessionPath);
+    if (len == -1)
     {
       #ifdef PANIC
-      fprintf(stderr, "nxagentGetClientsPath: PANIC! Invalid value for the NX clients Log File Path ''.\n");
+      fprintf(stderr, "%s: PANIC! Could not alloc NX clients Log File Path.\n", __func__);
       #endif
-
-      free(sessionPath);
-
       return;
     }
-
-    snprintf(nxagentClientsLogName, NXAGENTCLIENTSLOGNAMELENGTH, "%s/clients", sessionPath);
-
-    free(sessionPath);
   }
 
   return;

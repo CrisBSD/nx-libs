@@ -54,6 +54,7 @@ is" without express or implied warranty.
 #include "Visual.h"
 #include "Windows.h"
 #include "Args.h"
+#include "Utils.h"
 
 #define PANIC
 #define WARNING
@@ -68,11 +69,7 @@ Bool nxagentReconnectAllColormap(void *p0);
 
 Bool nxagentCreateColormap(ColormapPtr pCmap)
 {
-  VisualPtr pVisual;
   XColor *colors;
-  int i, ncolors;
-  Pixel red, green, blue;
-  Pixel redInc, greenInc, blueInc;
 
   Visual *visual;
   int class;
@@ -82,8 +79,8 @@ Bool nxagentCreateColormap(ColormapPtr pCmap)
               " visual [%lu].\n", pCmap->pVisual);
   #endif
 
-  pVisual = pCmap->pVisual;
-  ncolors = pVisual->ColormapEntries;
+  VisualPtr pVisual = pCmap->pVisual;
+  int ncolors = pVisual->ColormapEntries;
 
   pCmap->devPriv = (void *)malloc(sizeof(nxagentPrivColormap));
 
@@ -101,7 +98,6 @@ Bool nxagentCreateColormap(ColormapPtr pCmap)
     class = pVisual->class;
   }
 
-
   nxagentColormapPriv(pCmap)->colormap =
     XCreateColormap(nxagentDisplay,
                     nxagentDefaultWindows[pCmap->pScreen->myNum],
@@ -109,55 +105,66 @@ Bool nxagentCreateColormap(ColormapPtr pCmap)
                     (class & DynamicClass) ?
                     AllocAll : AllocNone);
 
-  switch (class) {
+  switch (class)
+  {
   case StaticGray: /* read only */
     colors = (XColor *)malloc(ncolors * sizeof(XColor));
-    for (i = 0; i < ncolors; i++)
+    for (int i = 0; i < ncolors; i++)
       colors[i].pixel = i;
     XQueryColors(nxagentDisplay, nxagentColormap(pCmap), colors, ncolors);
-    for (i = 0; i < ncolors; i++) {
+    for (int i = 0; i < ncolors; i++)
+    {
       pCmap->red[i].co.local.red = colors[i].red;
       pCmap->red[i].co.local.green = colors[i].red;
       pCmap->red[i].co.local.blue = colors[i].red;
     }
-    free(colors);
+    SAFE_free(colors);
     break;
 
   case StaticColor: /* read only */
     colors = (XColor *)malloc(ncolors * sizeof(XColor));
-    for (i = 0; i < ncolors; i++)
+    for (int i = 0; i < ncolors; i++)
       colors[i].pixel = i;
     XQueryColors(nxagentDisplay, nxagentColormap(pCmap), colors, ncolors);
-    for (i = 0; i < ncolors; i++) {
+    for (int i = 0; i < ncolors; i++)
+    {
       pCmap->red[i].co.local.red = colors[i].red;
       pCmap->red[i].co.local.green = colors[i].green;
       pCmap->red[i].co.local.blue = colors[i].blue;
     }
-    free(colors);
+    SAFE_free(colors);
     break;
 
   case TrueColor: /* read only */
     colors = (XColor *)malloc(ncolors * sizeof(XColor));
-    red = green = blue = 0L;
+    Pixel red = 0L, green = 0L, blue = 0L;
+    Pixel redInc, greenInc, blueInc;
     redInc = lowbit(pVisual->redMask);
     greenInc = lowbit(pVisual->greenMask);
     blueInc = lowbit(pVisual->blueMask);
-    for (i = 0; i < ncolors; i++) {
+    for (int i = 0; i < ncolors; i++)
+    {
       colors[i].pixel = red | green | blue;
       red += redInc;
-      if (red > pVisual->redMask) red = 0L;
+      if (red > pVisual->redMask)
+	red = 0L;
+
       green += greenInc;
-      if (green > pVisual->greenMask) green = 0L;
+      if (green > pVisual->greenMask)
+	green = 0L;
+
       blue += blueInc;
-      if (blue > pVisual->blueMask) blue = 0L;
+      if (blue > pVisual->blueMask)
+	blue = 0L;
     }
     XQueryColors(nxagentDisplay, nxagentColormap(pCmap), colors, ncolors);
-    for (i = 0; i < ncolors; i++) {
+    for (int i = 0; i < ncolors; i++)
+    {
       pCmap->red[i].co.local.red = colors[i].red;
       pCmap->green[i].co.local.green = colors[i].green;
       pCmap->blue[i].co.local.blue = colors[i].blue;
     }
-    free(colors);
+    SAFE_free(colors);
     break;
 
   case GrayScale: /* read and write */
@@ -176,7 +183,7 @@ Bool nxagentCreateColormap(ColormapPtr pCmap)
 void nxagentDestroyColormap(ColormapPtr pCmap)
 {
   XFreeColormap(nxagentDisplay, nxagentColormap(pCmap));
-  free(pCmap->devPriv);
+  SAFE_free(pCmap->devPriv);
 }
 
 #define SEARCH_PREDICATE \
@@ -186,13 +193,14 @@ static int nxagentCountInstalledColormapWindows(WindowPtr pWin, void * ptr)
 {
   nxagentInstalledColormapWindows *icws = (nxagentInstalledColormapWindows *) ptr;
 
-  int i;
-
-  for (i = 0; i < icws->numCmapIDs; i++)
-    if (SEARCH_PREDICATE) {
+  for (int i = 0; i < icws->numCmapIDs; i++)
+  {
+    if (SEARCH_PREDICATE)
+    {
       icws->numWindows++;
       return WT_DONTWALKCHILDREN;
     }
+  }
 
   return WT_WALKCHILDREN;
 }
@@ -200,13 +208,15 @@ static int nxagentCountInstalledColormapWindows(WindowPtr pWin, void * ptr)
 static int nxagentGetInstalledColormapWindows(WindowPtr pWin, void * ptr)
 {
   nxagentInstalledColormapWindows *icws = (nxagentInstalledColormapWindows *)ptr;
-  int i;
 
-  for (i = 0; i < icws->numCmapIDs; i++)
-    if (SEARCH_PREDICATE) {
+  for (int i = 0; i < icws->numCmapIDs; i++)
+  {
+    if (SEARCH_PREDICATE)
+    {
       icws->windows[icws->index++] = nxagentWindow(pWin);
       return WT_DONTWALKCHILDREN;
     }
+  }
 
   return WT_WALKCHILDREN;
 }
@@ -242,7 +252,8 @@ void nxagentSetInstalledColormapWindows(ScreenPtr pScreen)
   icws.numCmapIDs = nxagentListInstalledColormaps(pScreen, icws.cmapIDs);
   icws.numWindows = 0;
   WalkTree(pScreen, nxagentCountInstalledColormapWindows, (void *)&icws);
-  if (icws.numWindows) {
+  if (icws.numWindows)
+  {
     icws.windows = (Window *)malloc((icws.numWindows + 1) * sizeof(Window));
     icws.index = 0;
     WalkTree(pScreen, nxagentGetInstalledColormapWindows, (void *)&icws);
@@ -254,21 +265,21 @@ void nxagentSetInstalledColormapWindows(ScreenPtr pScreen)
     numWindows = 0;
   }
 
-  free(icws.cmapIDs);
+  SAFE_free(icws.cmapIDs);
 
-  if (!nxagentSameInstalledColormapWindows(icws.windows, icws.numWindows)) {
-    free(nxagentOldInstalledColormapWindows);
+  if (!nxagentSameInstalledColormapWindows(icws.windows, icws.numWindows))
+  {
+    SAFE_free(nxagentOldInstalledColormapWindows);
 
 #ifdef _XSERVER64
     {
-      int i;
       Window64 *windows = (Window64 *)malloc(numWindows * sizeof(Window64));
 
-      for(i = 0; i < numWindows; ++i)
+      for(int i = 0; i < numWindows; ++i)
 	  windows[i] = icws.windows[i];
       XSetWMColormapWindows(nxagentDisplay, nxagentDefaultWindows[pScreen->myNum],
 			    windows, numWindows);
-      free(windows);
+      SAFE_free(windows);
     }
 #else
     XSetWMColormapWindows(nxagentDisplay, nxagentDefaultWindows[pScreen->myNum],
@@ -284,45 +295,43 @@ void nxagentSetInstalledColormapWindows(ScreenPtr pScreen)
       This will only work with default local visual colormaps.
       */
     if (icws.numWindows)
+    {
+      ColormapPtr pCmap;
+
+      WindowPtr pWin = nxagentWindowPtr(icws.windows[0]);
+      Visual *visual = nxagentVisualFromID(pScreen, wVisual(pWin));
+
+      if (visual == nxagentDefaultVisual(pScreen))
+        pCmap = (ColormapPtr)LookupIDByType(wColormap(pWin),
+                                            RT_COLORMAP);
+      else
+        pCmap = (ColormapPtr)LookupIDByType(pScreen->defColormap,
+                                            RT_COLORMAP);
+
+      if (pCmap != NULL)
       {
-	WindowPtr pWin;
-	Visual *visual;
-	ColormapPtr pCmap;
-
-	pWin = nxagentWindowPtr(icws.windows[0]);
-	visual = nxagentVisualFromID(pScreen, wVisual(pWin));
-
-	if (visual == nxagentDefaultVisual(pScreen))
-	  pCmap = (ColormapPtr)LookupIDByType(wColormap(pWin),
-					      RT_COLORMAP);
-	else
-	  pCmap = (ColormapPtr)LookupIDByType(pScreen->defColormap,
-					      RT_COLORMAP);
-
-        if (pCmap != NULL)
-        {
-          XSetWindowColormap(nxagentDisplay,
-	                         nxagentDefaultWindows[pScreen->myNum],
-                                     nxagentColormap(pCmap));
-        }
-        #ifdef WARNING
-        else
-        {
-          fprintf(stderr, "nxagentSetInstalledColormapWindows: WARNING! "
-                      "Window at [%p] has no colormap with class [%d].\n",
-		  (void *)pWin, pWin -> drawable.class);
-        }
-        #endif
+        XSetWindowColormap(nxagentDisplay,
+                               nxagentDefaultWindows[pScreen->myNum],
+                                   nxagentColormap(pCmap));
       }
+      #ifdef WARNING
+      else
+      {
+        fprintf(stderr, "nxagentSetInstalledColormapWindows: WARNING! "
+                    "Window at [%p] has no colormap with class [%d].\n",
+                (void *)pWin, pWin -> drawable.class);
+      }
+      #endif
+    }
 #endif /* DUMB_WINDOW_MANAGERS */
   }
   else
-    free(icws.windows);
+    SAFE_free(icws.windows);
 }
 
 void nxagentSetScreenSaverColormapWindow(ScreenPtr pScreen)
 {
-  free(nxagentOldInstalledColormapWindows);
+  SAFE_free(nxagentOldInstalledColormapWindows);
 
 #ifdef _XSERVER64
   {
@@ -346,17 +355,15 @@ void nxagentSetScreenSaverColormapWindow(ScreenPtr pScreen)
 
 void nxagentDirectInstallColormaps(ScreenPtr pScreen)
 {
-  int i, n;
   Colormap pCmapIDs[MAXCMAPS];
 
-  if (!nxagentDoDirectColormaps) return;
+  if (!nxagentDoDirectColormaps)
+    return;
 
-  n = (*pScreen->ListInstalledColormaps)(pScreen, pCmapIDs);
+  int n = (*pScreen->ListInstalledColormaps)(pScreen, pCmapIDs);
 
-  for (i = 0; i < n; i++) {
-    ColormapPtr pCmap;
-
-    pCmap = (ColormapPtr)LookupIDByType(pCmapIDs[i], RT_COLORMAP);
+  for (int i = 0; i < n; i++) {
+    ColormapPtr pCmap = (ColormapPtr)LookupIDByType(pCmapIDs[i], RT_COLORMAP);
     if (pCmap)
       XInstallColormap(nxagentDisplay, nxagentColormap(pCmap));
   }
@@ -364,17 +371,14 @@ void nxagentDirectInstallColormaps(ScreenPtr pScreen)
 
 void nxagentDirectUninstallColormaps(ScreenPtr pScreen)
 {
-  int i, n;
   Colormap pCmapIDs[MAXCMAPS];
 
   if (!nxagentDoDirectColormaps) return;
 
-  n = (*pScreen->ListInstalledColormaps)(pScreen, pCmapIDs);
+  int n = (*pScreen->ListInstalledColormaps)(pScreen, pCmapIDs);
 
-  for (i = 0; i < n; i++) {
-    ColormapPtr pCmap;
-
-    pCmap = (ColormapPtr)LookupIDByType(pCmapIDs[i], RT_COLORMAP);
+  for (int i = 0; i < n; i++) {
+    ColormapPtr pCmap = (ColormapPtr)LookupIDByType(pCmapIDs[i], RT_COLORMAP);
     if (pCmap)
       XUninstallColormap(nxagentDisplay, nxagentColormap(pCmap));
   }
@@ -382,45 +386,39 @@ void nxagentDirectUninstallColormaps(ScreenPtr pScreen)
 
 void nxagentInstallColormap(ColormapPtr pCmap)
 {
-  int index;
-  ColormapPtr pOldCmap;
-
-  index = pCmap->pScreen->myNum;
-  pOldCmap = InstalledMaps[index];
+  int index = pCmap->pScreen->myNum;
+  ColormapPtr pOldCmap = InstalledMaps[index];
 
   if(pCmap != pOldCmap)
-    {
-      nxagentDirectUninstallColormaps(pCmap->pScreen);
+  {
+    nxagentDirectUninstallColormaps(pCmap->pScreen);
 
-      /* Uninstall pInstalledMap. Notify all interested parties. */
-      if(pOldCmap != (ColormapPtr)None)
-	WalkTree(pCmap->pScreen, TellLostMap, (void *)&pOldCmap->mid);
+    /* Uninstall pInstalledMap. Notify all interested parties. */
+    if(pOldCmap != (ColormapPtr)None)
+      WalkTree(pCmap->pScreen, TellLostMap, (void *)&pOldCmap->mid);
 
-      InstalledMaps[index] = pCmap;
-      WalkTree(pCmap->pScreen, TellGainedMap, (void *)&pCmap->mid);
+    InstalledMaps[index] = pCmap;
+    WalkTree(pCmap->pScreen, TellGainedMap, (void *)&pCmap->mid);
 
-      nxagentSetInstalledColormapWindows(pCmap->pScreen);
-      nxagentDirectInstallColormaps(pCmap->pScreen);
-    }
+    nxagentSetInstalledColormapWindows(pCmap->pScreen);
+    nxagentDirectInstallColormaps(pCmap->pScreen);
+  }
 }
 
 void nxagentUninstallColormap(ColormapPtr pCmap)
 {
-  int index;
-  ColormapPtr pCurCmap;
-
-  index = pCmap->pScreen->myNum;
-  pCurCmap = InstalledMaps[index];
+  int index = pCmap->pScreen->myNum;
+  ColormapPtr pCurCmap = InstalledMaps[index];
 
   if(pCmap == pCurCmap)
+  {
+    if ((unsigned int)pCmap->mid != pCmap->pScreen->defColormap)
     {
-      if ((unsigned int)pCmap->mid != pCmap->pScreen->defColormap)
-        {
-	  pCurCmap = (ColormapPtr)LookupIDByType(pCmap->pScreen->defColormap,
-						 RT_COLORMAP);
-	  (*pCmap->pScreen->InstallColormap)(pCurCmap);
-        }
+      pCurCmap = (ColormapPtr)LookupIDByType(pCmap->pScreen->defColormap,
+					     RT_COLORMAP);
+      (*pCmap->pScreen->InstallColormap)(pCurCmap);
     }
+  }
 }
 
 int nxagentListInstalledColormaps(ScreenPtr pScreen, Colormap *pCmapIds)
@@ -428,7 +426,6 @@ int nxagentListInstalledColormaps(ScreenPtr pScreen, Colormap *pCmapIds)
   if (nxagentInstalledDefaultColormap)
   {
     *pCmapIds = InstalledMaps[pScreen->myNum]->mid;
-
     return 1;
   }
   else
@@ -442,10 +439,9 @@ void nxagentStoreColors(ColormapPtr pCmap, int nColors, xColorItem *pColors)
   if (pCmap->pVisual->class & DynamicClass)
 #ifdef _XSERVER64
   {
-    int i;
     XColor *pColors64 = (XColor *)malloc(nColors * sizeof(XColor) );
 
-    for(i = 0; i < nColors; ++i)
+    for(int i = 0; i < nColors; ++i)
     {
       pColors64[i].pixel = pColors[i].pixel;
       pColors64[i].red = pColors[i].red;
@@ -454,7 +450,7 @@ void nxagentStoreColors(ColormapPtr pCmap, int nColors, xColorItem *pColors)
       pColors64[i].flags = pColors[i].flags;
     }
     XStoreColors(nxagentDisplay, nxagentColormap(pCmap), pColors64, nColors);
-    free(pColors64);
+    SAFE_free(pColors64);
   }
 #else
     XStoreColors(nxagentDisplay, nxagentColormap(pCmap),
@@ -465,50 +461,43 @@ void nxagentStoreColors(ColormapPtr pCmap, int nColors, xColorItem *pColors)
 void nxagentResolveColor(unsigned short *pRed, unsigned short *pGreen,
                              unsigned short *pBlue, VisualPtr pVisual)
 {
-  int shift;
-  unsigned int lim;
-
-  shift = 16 - pVisual->bitsPerRGBValue;
-  lim = (1 << pVisual->bitsPerRGBValue) - 1;
+  int shift = 16 - pVisual->bitsPerRGBValue;
+  unsigned int lim = (1 << pVisual->bitsPerRGBValue) - 1;
 
   if ((pVisual->class == PseudoColor) || (pVisual->class == DirectColor))
-    {
-      /* rescale to rgb bits */
-      *pRed = ((*pRed >> shift) * 65535) / lim;
-      *pGreen = ((*pGreen >> shift) * 65535) / lim;
-      *pBlue = ((*pBlue >> shift) * 65535) / lim;
-    }
+  {
+    /* rescale to rgb bits */
+    *pRed = ((*pRed >> shift) * 65535) / lim;
+    *pGreen = ((*pGreen >> shift) * 65535) / lim;
+    *pBlue = ((*pBlue >> shift) * 65535) / lim;
+  }
   else if (pVisual->class == GrayScale)
-    {
-      /* rescale to gray then rgb bits */
-      *pRed = (30L * *pRed + 59L * *pGreen + 11L * *pBlue) / 100;
-      *pBlue = *pGreen = *pRed = ((*pRed >> shift) * 65535) / lim;
-    }
+  {
+    /* rescale to gray then rgb bits */
+    *pRed = (30L * *pRed + 59L * *pGreen + 11L * *pBlue) / 100;
+    *pBlue = *pGreen = *pRed = ((*pRed >> shift) * 65535) / lim;
+  }
   else if (pVisual->class == StaticGray)
-    {
-      unsigned int limg;
-
-      limg = pVisual->ColormapEntries - 1;
-      /* rescale to gray then [0..limg] then [0..65535] then rgb bits */
-      *pRed = (30L * *pRed + 59L * *pGreen + 11L * *pBlue) / 100;
-      *pRed = ((((*pRed * (limg + 1))) >> 16) * 65535) / limg;
-      *pBlue = *pGreen = *pRed = ((*pRed >> shift) * 65535) / lim;
-    }
+  {
+    unsigned int limg = pVisual->ColormapEntries - 1;
+    /* rescale to gray then [0..limg] then [0..65535] then rgb bits */
+    *pRed = (30L * *pRed + 59L * *pGreen + 11L * *pBlue) / 100;
+    *pRed = ((((*pRed * (limg + 1))) >> 16) * 65535) / limg;
+    *pBlue = *pGreen = *pRed = ((*pRed >> shift) * 65535) / lim;
+  }
   else
-    {
-      unsigned limr, limg, limb;
-
-      limr = pVisual->redMask >> pVisual->offsetRed;
-      limg = pVisual->greenMask >> pVisual->offsetGreen;
-      limb = pVisual->blueMask >> pVisual->offsetBlue;
-      /* rescale to [0..limN] then [0..65535] then rgb bits */
-      *pRed = ((((((*pRed * (limr + 1)) >> 16) *
-		  65535) / limr) >> shift) * 65535) / lim;
-      *pGreen = ((((((*pGreen * (limg + 1)) >> 16) *
-		    65535) / limg) >> shift) * 65535) / lim;
-      *pBlue = ((((((*pBlue * (limb + 1)) >> 16) *
-		   65535) / limb) >> shift) * 65535) / lim;
-    }
+  {
+    unsigned limr = pVisual->redMask >> pVisual->offsetRed;
+    unsigned limg = pVisual->greenMask >> pVisual->offsetGreen;
+    unsigned limb = pVisual->blueMask >> pVisual->offsetBlue;
+    /* rescale to [0..limN] then [0..65535] then rgb bits */
+    *pRed = ((((((*pRed * (limr + 1)) >> 16) *
+                65535) / limr) >> shift) * 65535) / lim;
+    *pGreen = ((((((*pGreen * (limg + 1)) >> 16) *
+                  65535) / limg) >> shift) * 65535) / lim;
+    *pBlue = ((((((*pBlue * (limb + 1)) >> 16) *
+                 65535) / limb) >> shift) * 65535) / lim;
+  }
 }
 
 Bool nxagentCreateDefaultColormap(ScreenPtr pScreen)
@@ -516,7 +505,6 @@ Bool nxagentCreateDefaultColormap(ScreenPtr pScreen)
   VisualPtr   pVisual;
   ColormapPtr pCmap;
   unsigned short zero = 0, ones = 0xFFFF;
-  Pixel wp, bp;
 
   #if defined(DEBUG) || defined(DEBUG_COLORMAP)
   fprintf(stderr, "Debug: Searching for the root visual [%lu].\n",
@@ -532,8 +520,8 @@ Bool nxagentCreateDefaultColormap(ScreenPtr pScreen)
       != Success)
     return False;
 
-  wp = pScreen->whitePixel;
-  bp = pScreen->blackPixel;
+  Pixel wp = pScreen->whitePixel;
+  Pixel bp = pScreen->blackPixel;
   if ((AllocColor(pCmap, &ones, &ones, &ones, &wp, 0) !=
        Success) ||
       (AllocColor(pCmap, &zero, &zero, &zero, &bp, 0) !=
@@ -552,7 +540,6 @@ static void nxagentReconnectColormap(void * p0, XID x1, void * p2)
 {
   ColormapPtr pCmap = (ColormapPtr)p0;
   Bool* pBool = (Bool*)p2;
-  VisualPtr pVisual;
 
   #ifdef NXAGENT_RECONNECT_COLORMAP_DEBUG
   fprintf(stderr, "nxagentReconnectColormap: %p\n", pCmap);
@@ -561,7 +548,7 @@ static void nxagentReconnectColormap(void * p0, XID x1, void * p2)
   if (!*pBool || !pCmap)
     return;
 
-  pVisual = pCmap -> pVisual;
+  VisualPtr pVisual = pCmap -> pVisual;
 
   nxagentColormapPriv(pCmap)->colormap =
       XCreateColormap(nxagentDisplay,
@@ -578,14 +565,13 @@ static void nxagentReconnectColormap(void * p0, XID x1, void * p2)
 
 Bool nxagentReconnectAllColormap(void *p0)
 {
-  int cid;
   Bool success = True;
 
   #if defined(NXAGENT_RECONNECT_DEBUG) || defined(NXAGENT_RECONNECT_COLORMAP_DEBUG)
   fprintf(stderr, "nxagentReconnectAllColormap\n");
   #endif
 
-  for (cid = 0; (cid < MAXCLIENTS) && success; cid++)
+  for (int cid = 0; (cid < MAXCLIENTS) && success; cid++)
   {
     if (clients[cid] && success)
     {

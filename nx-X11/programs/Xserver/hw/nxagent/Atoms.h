@@ -30,7 +30,7 @@
 #include "../../include/window.h"
 #include "screenint.h"
 
-#define NXAGENT_NUMBER_OF_ATOMS  16
+#define NXAGENT_NUMBER_OF_ATOMS  18
 
 extern Atom nxagentAtoms[NXAGENT_NUMBER_OF_ATOMS];
 
@@ -41,7 +41,7 @@ extern Bool nxagentWMIsRunning;
  * to the agent server.
  */
 
-int nxagentInitAtoms(WindowPtr pWin);
+void nxagentInitAtoms();
 
 /*
  * Query and create all the required atoms
@@ -51,23 +51,33 @@ int nxagentInitAtoms(WindowPtr pWin);
 
 int nxagentQueryAtoms(ScreenPtr pScreen);
 
+void nxagentResetAtomMap(void);
+
+void nxagentWMDetect(void);
+
+#ifdef XlibAtom
+
+/*
+ * only provide these protoypes if the including file knows about Xlib
+ * types. This allows us including Atoms.h without having to use the
+ * Xlib type magic of Agent.h
+ */
+
 /*
  * Create the atoms on the remote X server
  * and cache the couple local-remote atoms.
  */
 
-Atom nxagentMakeAtom(char *, unsigned, Bool);
+XlibAtom nxagentMakeAtom(char *, unsigned, Bool);
 
 /*
  * Converts local atoms in remote atoms and
  * viceversa.
  */
 
-Atom nxagentRemoteToLocalAtom(Atom);
-Atom nxagentLocalToRemoteAtom(Atom);
+Atom nxagentRemoteToLocalAtom(XlibAtom);
+XlibAtom nxagentLocalToRemoteAtom(Atom);
 
-void nxagentResetAtomMap(void);
-
-void nxagentWMDetect(void);
+#endif
 
 #endif /* __Atoms_H__ */

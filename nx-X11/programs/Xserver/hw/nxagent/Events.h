@@ -39,7 +39,6 @@ enum HandleEventResult
   doMinimize,
   doDebugTree,
   doCloseSession,
-  doStartKbd,
   doSwitchFullscreen,
   doSwitchAllScreens,
   doViewportMoveUp,
@@ -51,7 +50,8 @@ enum HandleEventResult
   doViewportRight,
   doViewportDown,
   doSwitchResizeMode,
-  doSwitchDeferMode
+  doSwitchDeferMode,
+  doAutoGrab,
 };
 
 extern CARD32 nxagentLastEventTime;
@@ -68,9 +68,9 @@ typedef int (*GetResourceFuncPtr)(Display*);
 
 int nxagentWaitForResource(GetResourceFuncPtr, PredicateFuncPtr);
 
-Bool nxagentCollectGrabPointerPredicate(Display *display, XEvent *X, XPointer ptr);
+Bool nxagentCollectGrabPointerPredicate(Display *disp, XEvent *X, XPointer ptr);
 
-int nxagentInputEventPredicate(Display *display, XEvent *event, XPointer parameter);
+int nxagentInputEventPredicate(Display *disp, XEvent *event, XPointer parameter);
 
 /*
  * Enable and disable notification of
@@ -233,6 +233,6 @@ Bool nxagentPendingEvents(Display *dpy);
 #define nxagentCheckEvents(display, event, predicate, argument) \
     XCheckIfEventNoFlush((display), (event), (predicate), (argument))
 
-int nxagentWaitEvents(Display *, struct timeval *);
+int nxagentWaitEvents(Display *, useconds_t msec);
 
 #endif /* __Events_H__ */

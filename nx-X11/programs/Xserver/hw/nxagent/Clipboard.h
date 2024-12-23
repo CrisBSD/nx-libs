@@ -36,18 +36,17 @@ typedef struct _XFixesAgentInfo
   int EventBase;
   int ErrorBase;
   int Initialized;
-
 } XFixesAgentInfoRec;
 
 extern XFixesAgentInfoRec nxagentXFixesInfo;
 
 /*
- * Create the NX_CUT_BUFFER_CLIENT atom and
+ * Create the NX_SELTRANS_FROM_AGENT atom and
  * initialize the required property to exchange
  * data with the X server.
  */
 
-extern int nxagentInitClipboard(WindowPtr pWindow);
+extern Bool nxagentInitClipboard(WindowPtr pWindow);
 
 /*
  * Called whenever a client or a window is
@@ -64,6 +63,7 @@ extern int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom select
 
 void nxagentClearSelection();
 void nxagentRequestSelection();
-void nxagentNotifySelection();
+void nxagentHandleSelectionNotifyFromXServer();
 
+int nxagentFindCurrentSelectionIndex(Atom sel);
 #endif /* __Clipboard_H__ */

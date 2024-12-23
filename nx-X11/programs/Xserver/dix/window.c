@@ -305,7 +305,6 @@ SetWindowToDefaults(register WindowPtr pWin)
 #endif
 }
 
-#ifndef NXAGENT_SERVER
 static void
 MakeRootTile(WindowPtr pWin)
 {
@@ -348,7 +347,6 @@ MakeRootTile(WindowPtr pWin)
    FreeScratchGC(pGC);
 
 }
-#endif /* NXAGENT_SERVER */
 
 WindowPtr
 AllocateWindow(ScreenPtr pScreen)
@@ -499,9 +497,12 @@ CreateRootWindow(ScreenPtr pScreen)
     return TRUE;
 }
 
-#ifndef NXAGENT_SERVER
 void
+#ifdef NXAGENT_SERVER
+xorg_InitRootWindow(WindowPtr pWin)
+#else
 InitRootWindow(WindowPtr pWin)
+#endif
 {
     ScreenPtr pScreen = pWin->drawable.pScreen;
     int backFlag = CWBorderPixel | CWCursor | CWBackingStore;
@@ -533,7 +534,6 @@ InitRootWindow(WindowPtr pWin)
 
     MapWindow(pWin, serverClient);
 }
-#endif /* NXAGENT_SERVER */
 
 /* Set the region to the intersection of the rectangle and the
  * window's winSize.  The window is typically the parent of the
@@ -915,7 +915,6 @@ CrushTree(WindowPtr pWin)
  *	 If wid is None, don't send any events
  *****/
 
-#ifndef NXAGENT_SERVER
 int
 DeleteWindow(void * value, XID wid)
  {
@@ -951,7 +950,6 @@ DeleteWindow(void * value, XID wid)
     free(pWin);
     return Success;
 }
-#endif /* NXAGENT_SERVER */
 
 void
 DestroySubwindows(register WindowPtr pWin, ClientPtr client)
@@ -2990,7 +2988,6 @@ UnrealizeTree(
  *    generated.  Cannot unmap a root window.
  *****/
 
-#ifndef NXAGENT_SERVER
 int
 UnmapWindow(register WindowPtr pWin, Bool fromConfigure)
 {
@@ -3044,7 +3041,6 @@ UnmapWindow(register WindowPtr pWin, Bool fromConfigure)
 	WindowsRestructured ();
     return(Success);
 }
-#endif /* NXAGENT_SERVER */
 
 /*****
  * UnmapSubwindows

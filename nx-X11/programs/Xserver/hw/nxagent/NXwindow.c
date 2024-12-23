@@ -106,17 +106,12 @@ Equipment Corporation.
 
 #include "Screen.h"
 #include "Options.h"
-#include "Atoms.h"
 #include "Clipboard.h"
 #include "Splash.h"
 #include "Rootless.h"
 #include "Composite.h"
 #include "Drawable.h"
 #include "Colormap.h"
-
-/* prototypes (only MakeRootTile() required here) */
-
-static void MakeRootTile(WindowPtr pWin);
 
 #include "../../dix/window.c"
 
@@ -132,90 +127,11 @@ extern Bool nxagentScreenTrap;
 #undef  TEST
 #undef  DEBUG
 
-WindowPtr nxagentRootTileWindow;
-
 extern void nxagentSetVersionProperty(WindowPtr pWin);
-
-void nxagentClearSplash(WindowPtr pW)
-{
-    ScreenPtr pScreen = pW->drawable.pScreen;
-
-    if (pW->backgroundState == BackgroundPixmap)
-    {
-      (*pScreen->DestroyPixmap)(pW->background.pixmap);
-    }
-
-    pW->backgroundState = BackgroundPixel;
-    pW->background.pixel = nxagentLogoBlack;
-
-    (*pScreen->ChangeWindowAttributes)(pW, CWBackPixmap|CWBackPixel);
-}
-
-static void
-MakeRootTile(WindowPtr pWin)
-{
-    ScreenPtr pScreen = pWin->drawable.pScreen;
-    GCPtr pGC;
-    unsigned char back[128];
-    int len = BitmapBytePad(sizeof(long));
-    register unsigned char *from, *to;
-    register int i, j;
-
-    pWin->background.pixmap = (*pScreen->CreatePixmap)(pScreen, 4, 4,
-						    pScreen->rootDepth, 0);
-
-    pWin->backgroundState = BackgroundPixmap;
-    pGC = GetScratchGC(pScreen->rootDepth, pScreen);
-    if (!pWin->background.pixmap || !pGC)
-	FatalError("could not create root tile");
-
-    {
-	CARD32 attributes[2];
-
-	attributes[0] = pScreen->whitePixel;
-	attributes[1] = pScreen->blackPixel;
-
-	(void)ChangeGC(pGC, GCForeground | GCBackground, attributes);
-    }
-
-   ValidateGC((DrawablePtr)pWin->background.pixmap, pGC);
-
-   from = (screenInfo.bitmapBitOrder == LSBFirst) ? _back_lsb : _back_msb;
-   to = back;
-
-   for (i = 4; i > 0; i--, from++)
-	for (j = len; j > 0; j--)
-	    *to++ = *from;
-
-   (*pGC->ops->PutImage)((DrawablePtr)pWin->background.pixmap, pGC, 1,
-		    0, 0, len, 4, 0, XYBitmap, (char *)back);
-
-   FreeScratchGC(pGC);
-
-   nxagentRootTileWindow = pWin;
-}
 
 void
 InitRootWindow(WindowPtr pWin)
 {
-    ScreenPtr pScreen = pWin->drawable.pScreen;
-    int backFlag = CWBorderPixel | CWCursor | CWBackingStore;
-
-    #ifdef TEST
-    fprintf(stderr, "InitRootWindow: Called for window at [%p][%ld] with parent [%p].\n",
-                (void *) pWin, nxagentWindowPriv(pWin)->window, (void *) pWin -> parent);
-    #endif
-
-    if (nxagentOption(Rootless))
-    {
-      #ifdef TEST
-      fprintf(stderr, "InitRootWindow: Assigned agent root to window at [%p][%ld] with parent [%p].\n",
-                  (void *) pWin, nxagentWindowPriv(pWin)->window, (void *) pWin -> parent);
-      #endif
-
-      nxagentRootlessWindow = pWin;
-    }
-
     /*
      * A root window is created for each screen by main
      * and the pointer is saved in screenInfo.screens as
@@ -230,52 +146,17 @@ InitRootWindow(WindowPtr pWin)
      * if you prefer) fits in the big picture.
      */
 
-    #ifdef TEST
-    fprintf(stderr, "InitRootWindow: Going to create window as root at [%p][%ld] with parent [%p].\n",
-                (void *) pWin, nxagentWindowPriv(pWin)->window, (void *) pWin -> parent);
-    #endif
+    if (nxagentOption(Rootless))
+    {
+      #ifdef TEST
+      fprintf(stderr, "InitRootWindow: Assigned agent root to window at [%p][%ld] with parent [%p].\n",
+                  (void *) pWin, nxagentWindowPriv(pWin)->window, (void *) pWin -> parent);
+      #endif
 
-    if (!(*pScreen->CreateWindow)(pWin))
-	return; /* XXX */
-
-    #ifdef TEST
-    fprintf(stderr, "InitRootWindow: Created window as root at [%p][%ld] with parent [%p].\n",
-                (void *) pWin, nxagentWindowPriv(pWin)->window, (void *) pWin -> parent);
-    #endif
-
-    (*pScreen->PositionWindow)(pWin, 0, 0);
-
-    pWin->cursorIsNone = FALSE;
-    pWin->optional->cursor = rootCursor;
-    rootCursor->refcnt++;
-
-#ifdef NXAGENT_SPLASH
-    if (blackRoot)
-      pWin->background.pixel = pScreen->blackPixel;
-    else
-      pWin->background.pixel = pScreen->whitePixel;
-    backFlag |= CWBackPixel;
-
-    MakeRootTile(pWin);
-#else
-    if (!blackRoot && !whiteRoot) {
-        MakeRootTile(pWin);
-        backFlag |= CWBackPixmap;
+      nxagentRootlessWindow = pWin;
     }
-    else {
-        if (blackRoot)
-            pWin->background.pixel = pScreen->blackPixel;
-        else
-            pWin->background.pixel = pScreen->whitePixel;
-        backFlag |= CWBackPixel;
-    }
-#endif
 
-    pWin->backingStore = defaultBackingStore;
-    pWin->forcedBS = (defaultBackingStore != NotUseful);
-
-    /* We SHOULD check for an error value here XXX */
-    (*pScreen->ChangeWindowAttributes)(pWin, backFlag);
+    xorg_InitRootWindow(pWin);
 
     /*
      * Map both the root and the default agent window.
@@ -284,8 +165,6 @@ InitRootWindow(WindowPtr pWin)
     #ifdef TEST
     fprintf(stderr, "InitRootWindow: Mapping default windows.\n");
     #endif
-
-    nxagentInitAtoms(pWin);
 
     nxagentInitClipboard(pWin);
 
@@ -296,65 +175,13 @@ InitRootWindow(WindowPtr pWin)
     #ifdef NXAGENT_ARTSD
     {
       char artsd_port[10];
-      int nPort;
-      extern void nxagentPropagateArtsdProperties(ScreenPtr pScreen, char *port);
-      nPort = atoi(display) + 7000;
+      short int nPort = atoi(display) + 7000;
       sprintf(artsd_port,"%d", nPort);
-      nxagentPropagateArtsdProperties(pScreen, artsd_port);
+      nxagentPropagateArtsdProperties(pWin->drawable.pScreen, artsd_port);
     }
     #endif
 
     nxagentSetVersionProperty(pWin);
-}
-
-/*****
- *  DeleteWindow
- *	 Deletes child of window then window itself
- *	 If wid is None, don't send any events
- *****/
-
-int
-DeleteWindow(void * value, XID wid)
- {
-    register WindowPtr pParent;
-    register WindowPtr pWin = (WindowPtr)value;
-    xEvent event;
-
-    UnmapWindow(pWin, FALSE);
-
-    CrushTree(pWin);
-
-    pParent = pWin->parent;
-    if (wid && pParent && SubStrSend(pWin, pParent))
-    {
-	memset(&event, 0, sizeof(xEvent));
-	event.u.u.type = DestroyNotify;
-	event.u.destroyNotify.window = pWin->drawable.id;
-	DeliverEvents(pWin, &event, 1, NullWindow);		
-    }
-
-    FreeWindowResources(pWin);
-    if (pParent)
-    {
-	if (pParent->firstChild == pWin)
-	    pParent->firstChild = pWin->nextSib;
-	if (pParent->lastChild == pWin)
-	    pParent->lastChild = pWin->prevSib;
-	if (pWin->nextSib)
-	    pWin->nextSib->prevSib = pWin->prevSib;
-	if (pWin->prevSib)
-	    pWin->prevSib->nextSib = pWin->nextSib;
-    }
-
-    if (pWin -> optional &&
-            pWin -> optional -> colormap &&
-                pWin -> parent)
-    {
-      nxagentSetInstalledColormapWindows(pWin -> drawable.pScreen);
-    }
-
-    free(pWin);
-    return Success;
 }
 
 /* XXX need to retile border on each window with ParentRelative origin */
@@ -394,6 +221,7 @@ ResizeChildrenWinSize(register WindowPtr pWin, int dx, int dy, int dw, int dh)
 	SetWinSize (pSib);
 	SetBorderSize (pSib);
 
+#ifdef NXAGENT_SERVER
         /*
          * Don't force X to move children. It will position them
          * according with gravity.
@@ -406,6 +234,9 @@ ResizeChildrenWinSize(register WindowPtr pWin, int dx, int dy, int dw, int dh)
          */
 
         nxagentAddConfiguredWindow(pSib, CW_Update);
+#else
+        (*pScreen->PositionWindow)(pSib, pSib->drawable.x, pSib->drawable.y);
+#endif
 
 	if ( (pChild = pSib->firstChild) )
 	{
@@ -546,6 +377,7 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 	/* Figure out if the window should be moved.  Doesn't
 	   make the changes to the window if event sent */
 
+#ifdef NXAGENT_SERVER
     #ifdef TEST
     if (nxagentWindowTopLevel(pWin))
     {
@@ -567,6 +399,7 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 
       return Success;
     }
+#endif
 
     if (mask & CWStackMode)
 	pSib = WhereDoIGoInTheStack(pWin, pSib, pParent->drawable.x + x,
@@ -710,7 +543,9 @@ ActuallyDoSomething:
     if (action != RESTACK_WIN)
 	CheckCursorConfinement(pWin);
 
+#ifdef NXAGENT_SERVER
     nxagentFlushConfigureWindow();
+#endif
 
     return(Success);
 #undef RESTACK_WIN
@@ -773,10 +608,12 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
     pWin->parent = pParent;
     pPrev = RealChildHead(pParent);
 
+#ifdef NXAGENT_SERVER
     if (pWin->parent == screenInfo.screens[0]->root)
     {
       nxagentSetTopLevelEventMask(pWin);
     }
+#endif
  
     if (pPrev)
     {
@@ -842,12 +679,14 @@ MapWindow(register WindowPtr pWin, ClientPtr client)
 #endif
     WindowPtr  pLayerWin;
 
+#ifdef NXAGENT_SERVER
     #ifdef TEST
     if (nxagentWindowTopLevel(pWin))
     {
       fprintf(stderr, "MapWindow: pWin [%p] client [%p]\n", pWin, client);
     }
     #endif
+#endif
 
     if (pWin->mapped)
 	return(Success);
@@ -938,77 +777,10 @@ MapWindow(register WindowPtr pWin, ClientPtr client)
 	RegionUninit(&temp);
     }
 
+#ifdef NXAGENT_SERVER
     nxagentFlushConfigureWindow();
+#endif
 
-    return(Success);
-}
-
-/*****
- * UnmapWindow
- *    If the window is already unmapped, this request has no effect.
- *    Otherwise, the window is unmapped and an UnMapNotify event is
- *    generated.  Cannot unmap a root window.
- *****/
-
-int
-UnmapWindow(register WindowPtr pWin, Bool fromConfigure)
-{
-    register WindowPtr pParent;
-    xEvent event;
-    Bool wasRealized = (Bool)pWin->realized;
-    Bool wasViewable = (Bool)pWin->viewable;
-    ScreenPtr pScreen = pWin->drawable.pScreen;
-    WindowPtr pLayerWin = pWin;
-
-    #ifdef TEST
-    if (nxagentWindowTopLevel(pWin))
-    {
-      fprintf(stderr, "UnmapWindow: pWin [%p] fromConfigure [%d]\n", pWin,
-                  fromConfigure);
-    }
-    #endif
-
-    if ((!pWin->mapped) || (!(pParent = pWin->parent)))
-	return(Success);
-    if (SubStrSend(pWin, pParent) && MapUnmapEventsEnabled(pWin))
-    {
-	memset(&event, 0, sizeof(xEvent));
-	event.u.u.type = UnmapNotify;
-	event.u.unmapNotify.window = pWin->drawable.id;
-	event.u.unmapNotify.fromConfigure = fromConfigure;
-	DeliverEvents(pWin, &event, 1, NullWindow);
-    }
-    if (wasViewable && !fromConfigure)
-    {
-	pWin->valdata = UnmapValData;
-	(*pScreen->MarkOverlappedWindows)(pWin, pWin->nextSib, &pLayerWin);
-	(*pScreen->MarkWindow)(pLayerWin->parent);
-    }
-    pWin->mapped = FALSE;
-    if (wasRealized)
-	UnrealizeTree(pWin, fromConfigure);
-    if (wasViewable)
-    {
-	if (!fromConfigure)
-	{
-	    (*pScreen->ValidateTree)(pLayerWin->parent, pWin, VTUnmap);
-	    (*pScreen->HandleExposures)(pLayerWin->parent);
-	}
-#ifdef DO_SAVE_UNDERS
-	if (DO_SAVE_UNDERS(pWin))
-	{
-	    if ( (*pScreen->ChangeSaveUnder)(pLayerWin, pWin->nextSib) )
-	    {
-		(*pScreen->PostChangeSaveUnder)(pLayerWin, pWin->nextSib);
-	    }
-	}
-	pWin->DIXsaveUnder = FALSE;
-#endif /* DO_SAVE_UNDERS */
-	if (!fromConfigure && pScreen->PostValidateTree)
-	    (*pScreen->PostValidateTree)(pLayerWin->parent, pWin, VTUnmap);
-    }
-    if (wasRealized && !fromConfigure)
-	WindowsRestructured ();
     return(Success);
 }
 
@@ -1021,8 +793,6 @@ SaveScreens(int on, int mode)
 
     if (on == SCREEN_SAVER_FORCER)
     {
-	UpdateCurrentTimeIf();
-	lastDeviceEventTime = currentTime;
 	if (mode == ScreenSaverReset)
 	    what = SCREEN_SAVER_OFF;
 	else
@@ -1042,6 +812,7 @@ SaveScreens(int on, int mode)
 	   (* screenInfo.screens[i]->SaveScreen) (screenInfo.screens[i], on);
 	if (savedScreenInfo[i].ExternalScreenSaver)
 	{
+#ifdef NXAGENT_SERVER
           if (nxagentOption(Timeout) != 0)
           {
             #ifdef TEST
@@ -1050,6 +821,7 @@ SaveScreens(int on, int mode)
             #endif
           }
           else
+#endif
           {
 	      if ((*savedScreenInfo[i].ExternalScreenSaver)
 		  (screenInfo.screens[i], type, on == SCREEN_SAVER_FORCER))

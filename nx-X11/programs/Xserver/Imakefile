@@ -115,7 +115,7 @@ INSTPGMFLAGS =
 #endif
 #if BuildDamage
       DAMAGEDIR = damageext
-      DAMAGELIB = $(DAMAGEDIR)/libdamage.a
+      DAMAGELIB = $(DAMAGEDIR)/libdamageext.a
 #endif
 #if BuildComposite
           CWDIR = miext/cw
@@ -134,9 +134,7 @@ INSTPGMFLAGS =
              OS = os/LibraryTargetName(os)
         BSDEMUL = $(DEPXBSDLIB)
              FB = fb/LibraryTargetName(fb)
-#if (!(defined(NXAgentServer) && NXAgentServer))
          DAMAGE = miext/damage/LibraryTargetName(damage)
-#endif
          SHADOW = miext/shadow/LibraryTargetName(shadow)
           LAYER = miext/layer/LibraryTargetName(layer) 
 #if !HasFfs && (defined(mingwArchitecture) || defined(cygwinArchitecture))
@@ -244,11 +242,8 @@ NXAGENTOBJS = hw/nxagent/miinitext.o     \
               hw/nxagent/NXrender.o      \
               hw/nxagent/NXglyph.o       \
               hw/nxagent/NXpicture.o     \
-              hw/nxagent/NXextension.o   \
               hw/nxagent/NXglxext.o      \
-              hw/nxagent/NXmiexpose.o    \
               hw/nxagent/NXresource.o    \
-              hw/nxagent/NXdamage.o      \
               $(NULL)
 #elif !defined(Win32Architecture)
 NXAGENTOBJS = hw/nxagent/miinitext.o     \
@@ -261,12 +256,9 @@ NXAGENTOBJS = hw/nxagent/miinitext.o     \
               hw/nxagent/NXrender.o      \
               hw/nxagent/NXglyph.o       \
               hw/nxagent/NXpicture.o     \
-              hw/nxagent/NXextension.o   \
               hw/nxagent/NXglxext.o      \
               hw/nxagent/NXxvdisp.o      \
-              hw/nxagent/NXmiexpose.o    \
               hw/nxagent/NXresource.o    \
-              hw/nxagent/NXdamage.o      \
               $(NULL)
 #else
 NXAGENTOBJS = hw/nxagent/miinitext.o     \
@@ -279,12 +271,9 @@ NXAGENTOBJS = hw/nxagent/miinitext.o     \
               hw/nxagent/NXrender.o      \
               hw/nxagent/NXglyph.o       \
               hw/nxagent/NXpicture.o     \
-              hw/nxagent/NXextension.o   \
               hw/nxagent/NXglxext.o      \
               hw/nxagent/NXxvdisp.o      \
-              hw/nxagent/NXmiexpose.o    \
               hw/nxagent/NXresource.o    \
-              hw/nxagent/NXdamage.o      \
               dix/main.o                 \
               $(NULL)
 #endif
@@ -307,7 +296,7 @@ TIRPC_LIB =  $$(pkg-config --libs 'libtirpc')
 NXAGENT = hw/nxagent/LibraryTargetName(nxagent)
 NXCOMPEXT =  hw/nxagent/compext/LibraryTargetName(compext)
 NXAGENTLIBS = PreFbLibs $(NXAGENT) FbPostFbLibs $(NXCOMPEXT) $(NXAGENT) $(MI)
-NXAGENTSYSLIBS = $(LDPRELIBS) $(XLIB) $(SYSLIBS) $(XPMLIB) $(XMLLIB) $(PIXMANLIB) $(TIRPC_LIB)
+NXAGENTSYSLIBS = $(XLIB) $(SYSLIBS) $(XPMLIB) $(XMLLIB) $(PIXMANLIB) $(TIRPC_LIB)
 NXCOMPEXTSYSLIBS = $(ZLIB) $(PNGLIB) $(JPEGLIB)
 #if HasParallelMake
 MakeMutex($(NXAGENTDIRS) $(NXCOMPEXT) $(NXAGENTOBJS) $(NXAGENTLIBS) $(NXCOMPEXTSYSLIBS) $(NXAGENTSYSLIBS))

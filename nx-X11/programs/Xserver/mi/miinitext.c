@@ -171,9 +171,6 @@ typedef void (*InitExtension)(void);
 #endif
 
 /* FIXME: this whole block of externs should be from the appropriate headers */
-#ifdef XTESTEXT1
-extern void XTestExtension1Init(void);
-#endif
 #ifdef SHAPE
 extern void ShapeExtensionInit(void);
 #endif
@@ -231,7 +228,6 @@ extern void GlxPushProvider(__GLXprovider *impl);
 */
 #ifndef __DARWIN__
 extern void GlxExtensionInit(void);
-extern void GlxWrapInitVisuals(miInitVisualsProcPtr *);
 #else
 extern void DarwinGlxExtensionInit(void);
 extern void DarwinGlxWrapInitVisuals(miInitVisualsProcPtr *);
@@ -382,9 +378,6 @@ InitExtensions(argc, argv)
   if (!noPanoramiXExtension) PanoramiXExtensionInit();
 # endif
 #endif
-#ifdef XTESTEXT1
-    if (!noTestExtensions) XTestExtension1Init();
-#endif
 #ifdef SHAPE
     if (!noShapeExtension) ShapeExtensionInit();
 #endif
@@ -480,9 +473,7 @@ InitVisualWrap()
 {
     miResetInitVisuals();
 #ifdef GLXEXT
-#ifndef __DARWIN__
-    GlxWrapInitVisuals(&miInitVisualsProc);
-#else
+#ifdef __DARWIN__
     DarwinGlxWrapInitVisuals(&miInitVisualsProc);
 #endif
 #endif

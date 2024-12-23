@@ -59,7 +59,11 @@ RELEASE_VERSION = ReleaseVersion
 #if !defined(nxVersionString) && \
     defined(NX_VERSION_MAJOR) && defined(NX_VERSION_MINOR) && \
     defined(NX_VERSION_MICRO) && defined(NX_VERSION_PATCH)
+#if defined(NX_VERSION_CUSTOM)
+# define nxVersionString NX_VERSION_CUSTOM (`echo NX_VERSION_MAJOR NX_VERSION_MINOR NX_VERSION_MICRO NX_VERSION_PATCH | sed 's/ /./g'`)
+#else
 # define nxVersionString `echo NX_VERSION_MAJOR NX_VERSION_MINOR NX_VERSION_MICRO NX_VERSION_PATCH | sed 's/ /./g'`
+#endif
 #endif
 
 /*
@@ -716,9 +720,9 @@ XFREE86JAPANESEDOCDIR = $(DOCDIR)/Japanese
 #  if XFree86Devel
 #   define GccWarningOptions -Wall -Wpedantic -Wpointer-arith -Wstrict-prototypes \
 			  -Wmissing-prototypes -Wmissing-declarations \
-			  -Wredundant-decls -Wnested-externs Gcc28Warnings
+			  -Wredundant-decls -Wnested-externs -Wshadow Gcc28Warnings
 #  else
-#   define GccWarningOptions -Wall -Wpedantic -Wpointer-arith Gcc28Warnings
+#   define GccWarningOptions -Wall -Wpedantic -Wpointer-arith -Wshadow Gcc28Warnings
 #  endif
 # endif
 # ifndef DefaultCCOptions

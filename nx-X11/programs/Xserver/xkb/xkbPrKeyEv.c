@@ -52,11 +52,9 @@ unsigned        ndx;
 
     xkbi= keyc->xkbInfo;
     key= xE->u.u.detail;
-#ifdef DEBUG
     if (xkbDebugFlags&0x8) {
-	ErrorF("XkbPKE: Key %d %s\n",key,(xE->u.u.type==KeyPress?"down":"up"));
+	DebugF("XkbPKE: Key %d %s\n",key,(xE->u.u.type==KeyPress?"down":"up"));
     }
-#endif
 
     if ( (xkbi->repeatKey==key) && (xE->u.u.type==KeyRelease) &&
 	 ((xkbi->desc->ctrls->enabled_ctrls&XkbRepeatKeysMask)==0) ) {
@@ -119,12 +117,12 @@ unsigned        ndx;
 		        return;
 		    }
 		    if ( rg->currentDown!=0 ) {
-			int key = xE->u.u.detail;
+			int tmpkey = xE->u.u.detail;
 			xE->u.u.type= KeyRelease;
 			xE->u.u.detail= rg->currentDown;
 		        XkbHandleActions(keybd,keybd,xE,count);
 		        xE->u.u.type= KeyPress;
-		        xE->u.u.detail= key;
+		        xE->u.u.detail= tmpkey;
 		    }
 		    rg->currentDown= key;
 		}

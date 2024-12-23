@@ -144,6 +144,7 @@ GlyphInit (ScreenPtr pScreen)
     return TRUE;
 }
 
+#ifndef NXAGENT_SERVER
 GlyphRefPtr
 FindGlyphRef (GlyphHashPtr hash, CARD32 signature, Bool match, GlyphPtr compare)
 {
@@ -192,6 +193,7 @@ FindGlyphRef (GlyphHashPtr hash, CARD32 signature, Bool match, GlyphPtr compare)
     }
     return gr;
 }
+#endif
 
 CARD32
 HashGlyph (GlyphPtr glyph)
@@ -589,7 +591,8 @@ miGlyphs(CARD8 op,
         height = extents.y2 - extents.y1;
         pMaskPixmap =
             (*pScreen->CreatePixmap) (pScreen, width, height,
-                                      maskFormat->depth);
+                                      maskFormat->depth,
+                                      CREATE_PIXMAP_USAGE_SCRATCH);
         if (!pMaskPixmap)
             return;
         component_alpha = NeedsComponent(maskFormat->format);

@@ -53,6 +53,7 @@
 #include "Splash.h"
 #include "Error.h"
 #include "Keystroke.h"
+#include "Utils.h"
 
 #ifdef XKB
 #include "XKBsrv.h"
@@ -82,7 +83,7 @@ extern Bool nxagentReconnectAllPicture(void*);
 
 extern Bool nxagentDisconnectAllPicture(void);
 extern Bool nxagentDisconnectAllWindows(void);
-extern Bool nxagentDisconnectAllCursor(void);
+extern void nxagentDisconnectAllCursor(void);
 
 extern Bool nxagentReconnectFailedFonts(void*);
 extern Bool nxagentInstallFontServerPath(void);
@@ -134,7 +135,7 @@ static enum RECONNECTION_STEP failedStep;
 /*
  * Path of state File
  */
-char stateFile[PATH_MAX];
+char stateFile[PATH_MAX] = {0};
 
 
 void setStatePath(char* path)
@@ -448,8 +449,7 @@ Bool nxagentReconnectSession(void)
       return 0;
     }
 
-    free(nxagentKeyboard);
-    nxagentKeyboard = NULL;
+    SAFE_free(nxagentKeyboard);
   }
 
   nxagentSaveOptions();
@@ -458,15 +458,6 @@ Bool nxagentReconnectSession(void)
 
   nxagentProcessOptions(nxagentOptionsFilenameOrString);
 
-  if (nxagentKeyboard && (strcmp(nxagentKeyboard, "null/null") == 0))
-  {
-    #ifdef TEST
-    fprintf(stderr, "nxagentReconnect: changing nxagentKeyboard from [null/null] to [clone].\n");
-    #endif
-
-    free(nxagentKeyboard);
-    nxagentKeyboard = strdup("clone");
-  }
 
   if (nxagentReconnectDisplay(reconnectLossyLevel[DISPLAY_STEP]) == 0)
   {
@@ -528,6 +519,7 @@ Bool nxagentReconnectSession(void)
 
   nxagentEmptyBSPixmapList();
 
+  /* FIXME: nxagentReconnectAllPixmaps will always return 1 */
   if (nxagentReconnectAllPixmaps(reconnectLossyLevel[PIXMAP_STEP]) == 0)
   {
     failedStep = PIXMAP_STEP;
@@ -608,35 +600,39 @@ Bool nxagentReconnectSession(void)
     nxagentOldKeyboard = NULL;
   }
 
-  if (nxagentOption(ResetKeyboardAtResume) == 1 &&
-         (nxagentKeyboard  == NULL || nxagentOldKeyboard == NULL ||
-             strcmp(nxagentKeyboard, nxagentOldKeyboard) != 0 ||
-                 strcmp(nxagentKeyboard, "query") == 0 ||
-                     strcmp(nxagentKeyboard, "clone") == 0))
+  /* Reset the keyboard only if we detect any changes. */
+  if (nxagentOption(ResetKeyboardAtResume) == 1)
   {
-    if (nxagentResetKeyboard() == 0)
+    if (nxagentKeyboard == NULL || nxagentOldKeyboard == NULL ||
+            strcmp(nxagentKeyboard, nxagentOldKeyboard) != 0 ||
+                strcmp(nxagentKeyboard, "query") == 0 ||
+                    strcmp(nxagentKeyboard, "clone") == 0)
     {
-      #ifdef WARNING
-      if (nxagentVerbose == 1)
+      if (nxagentResetKeyboard() == 0)
       {
-        fprintf(stderr, "nxagentReconnectSession: Failed to reset keyboard device.\n");
+        #ifdef WARNING
+        if (nxagentVerbose == 1)
+        {
+          fprintf(stderr, "%s: Failed to reset keyboard device.\n", __func__);
+        }
+        #endif
+
+        failedStep = WINDOW_STEP;
+
+        goto nxagentReconnectError;
       }
-      #endif
-
-      failedStep = WINDOW_STEP;
-
-      goto nxagentReconnectError;
     }
-  }
-  else
-  {
-    nxagentKeycodeConversionSetup();
+    else
+    {
+      #ifdef DEBUG
+      fprintf(stderr, "%s: keyboard unchanged - skipping keyboard reset.\n", __func__);
+      #endif
+    }
   }
 
   nxagentXkbState.Initialized = 0;
 
-  free(nxagentOldKeyboard);
-  nxagentOldKeyboard = NULL;
+  SAFE_free(nxagentOldKeyboard);
 
   nxagentInitPointerMap();
 
@@ -671,7 +667,7 @@ Bool nxagentReconnectSession(void)
   }
 
   /* Re-read keystrokes definitions in case the keystrokes file has
-     changed while being supended */
+     changed while being suspended */
   nxagentInitKeystrokes(True);
 
   #ifdef NX_DEBUG_INPUT
@@ -681,7 +677,7 @@ Bool nxagentReconnectSession(void)
   #endif
   saveAgentState("RUNNING");
 
-  nxagentRemoveSplashWindow(NULL);
+  nxagentRemoveSplashWindow();
 
   /*
    * We let the proxy flush the link on our behalf
@@ -760,8 +756,7 @@ nxagentReconnectError:
     nxagentDisconnectDisplay();
   }
 
-  free(nxagentOldKeyboard);
-  nxagentOldKeyboard = NULL;
+  SAFE_free(nxagentOldKeyboard);
 
   return 0;
 }

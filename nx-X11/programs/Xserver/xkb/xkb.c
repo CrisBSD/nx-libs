@@ -876,21 +876,21 @@ XkbWriteKeyTypes(	XkbDescPtr		xkb,
 
 	buf= (char *)&wire[1];
 	if (wire->nMapEntries>0) {
-	    xkbKTMapEntryWireDesc *	wire;
+	    xkbKTMapEntryWireDesc *	ewire;
 	    XkbKTMapEntryPtr		entry;
-	    wire= (xkbKTMapEntryWireDesc *)buf;
+	    ewire= (xkbKTMapEntryWireDesc *)buf;
 	    entry= type->map;
-	    for (n=0;n<type->map_count;n++,wire++,entry++) {
-		wire->active= entry->active;
-		wire->mask= entry->mods.mask;
-		wire->level= entry->level;
-		wire->realMods= entry->mods.real_mods;
-		wire->virtualMods= entry->mods.vmods;
+	    for (n=0;n<type->map_count;n++,ewire++,entry++) {
+		ewire->active= entry->active;
+		ewire->mask= entry->mods.mask;
+		ewire->level= entry->level;
+		ewire->realMods= entry->mods.real_mods;
+		ewire->virtualMods= entry->mods.vmods;
 		if (client->swapped) {
-		    swaps(&wire->virtualMods);
+		    swaps(&ewire->virtualMods);
 		}
 	    }
-	    buf= (char *)wire;
+	    buf= (char *)ewire;
 	    if (type->preserve!=NULL) {
 		xkbModsWireDesc *	pwire;
 		XkbModsPtr		preserve;
@@ -2363,7 +2363,7 @@ ProcXkbSetMap(ClientPtr client)
 	else first= last= 0;
 	if (change.map.num_modmap_keys>0) {
 	    firstMM= change.map.first_modmap_key;
-	    lastMM= first+change.map.num_modmap_keys-1;
+	    lastMM= firstMM + change.map.num_modmap_keys - 1;
 	}
 	else firstMM= lastMM= 0;
 	if ((last>0) && (lastMM>0)) {
@@ -2598,7 +2598,6 @@ ProcXkbSetCompatMap(ClientPtr client)
     }
 
     if (stuff->groups!=0) {
-	register unsigned i,bit;
 	xkbModsWireDesc *wire = (xkbModsWireDesc *)data;
 	for (i=0,bit=1;i<XkbNumKbdGroups;i++,bit<<=1) {
 	    if (stuff->groups&bit) {
@@ -5677,10 +5676,8 @@ char *			str;
 	    return status;
     }
     else if (length!=0)  {
-#ifdef DEBUG
 	ErrorF("Internal Error!  BadLength in ProcXkbGetDeviceInfo\n");
 	ErrorF("                 Wrote %d fewer bytes than expected\n",length);
-#endif
 	return BadLength;
     }
     if (stuff->wanted&(~supported)) {

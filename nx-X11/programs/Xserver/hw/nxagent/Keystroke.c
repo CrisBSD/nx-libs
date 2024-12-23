@@ -44,7 +44,6 @@
 #include <libxml/tree.h>
 
 extern Bool nxagentWMIsRunning;
-extern Bool nxagentIpaq;
 extern char *nxagentKeystrokeFile;
 
 #ifdef NX_DEBUG_INPUT
@@ -100,6 +99,9 @@ char * nxagentSpecialKeystrokeNames[] = {
        "viewport_scroll_down",
 
        "reread_keystrokes",
+
+       "autograb",
+
        NULL,
 };
 
@@ -113,8 +115,6 @@ struct nxagentSpecialKeystrokeMap default_map[] = {
   {KEYSTROKE_FULLSCREEN, ControlMask | ShiftMask, True, XK_f},
   {KEYSTROKE_MINIMIZE, ControlMask, True, XK_m},
   {KEYSTROKE_DEFER, ControlMask, True, XK_e},
-  {KEYSTROKE_IGNORE, ControlMask, True, XK_BackSpace},
-  {KEYSTROKE_IGNORE, 0, False, XK_Terminate_Server},
   {KEYSTROKE_FORCE_SYNCHRONIZATION, ControlMask, True, XK_j},
 #ifdef DUMP
   {KEYSTROKE_REGIONS_ON_SCREEN, ControlMask, True, XK_a},
@@ -141,6 +141,7 @@ struct nxagentSpecialKeystrokeMap default_map[] = {
   {KEYSTROKE_VIEWPORT_SCROLL_DOWN, ControlMask, True, XK_Down},
   {KEYSTROKE_VIEWPORT_SCROLL_DOWN, ControlMask, True, XK_KP_Down},
   {KEYSTROKE_REREAD_KEYSTROKES, ControlMask, True, XK_k},
+  {KEYSTROKE_AUTOGRAB, ControlMask, True, XK_g},
   {KEYSTROKE_END_MARKER, 0, False, NoSymbol},
 };
 struct nxagentSpecialKeystrokeMap *map = default_map;
@@ -297,7 +298,7 @@ void nxagentInitKeystrokes(Bool force)
   if (force) {
     if (map != default_map)
     {
-      free(map);
+      SAFE_free(map);
       map = default_map;
     }
     fprintf(stderr, "Info: re-reading keystrokes configuration\n");
@@ -417,7 +418,7 @@ void nxagentInitKeystrokes(Bool force)
     #endif
     filename = NULL;
   }
-  free(homepath);
+  SAFE_free(homepath);
 
   if (map == default_map)
   {
@@ -431,9 +432,9 @@ void nxagentDumpKeystrokes(void)
 {
   int maxlen = 0;
   for (int i = 0; nxagentSpecialKeystrokeNames[i]; i++)
-    maxlen = min(maxlen, strlen(nxagentSpecialKeystrokeNames[i]));
+    maxlen = max(maxlen, strlen(nxagentSpecialKeystrokeNames[i]));
 
-  fprintf(stderr, "Current known keystrokes:\n");
+  fprintf(stderr, "Currently known keystrokes:\n");
 
   for (struct nxagentSpecialKeystrokeMap *cur = map; cur->stroke != KEYSTROKE_END_MARKER; cur++) {
     unsigned int mask = cur->modifierMask;
@@ -470,7 +471,7 @@ static enum nxagentSpecialKeystroke find_keystroke(XKeyEvent *X)
   #endif
   for (struct nxagentSpecialKeystrokeMap *cur = map; cur->stroke != KEYSTROKE_END_MARKER; cur++) {
     #ifdef DEBUG
-    fprintf(stderr, "%s: checking keysym '%c' (%d)\n", __func__, cur->keysym, cur->keysym);
+    fprintf(stderr,"%s: keysym %d stroke %d, type %d\n", __func__, cur->keysym, cur->stroke, X->type);
     #endif
     if (cur->keysym == keysym && modifier_matches(cur->modifierMask, cur->modifierAltMeta, X->state)) {
       #ifdef DEBUG
@@ -483,6 +484,9 @@ static enum nxagentSpecialKeystroke find_keystroke(XKeyEvent *X)
   return ret;
 }
 
+/*
+ * returns True if a special keystroke has been pressed. *result will contain the action.
+ */
 Bool nxagentCheckSpecialKeystroke(XKeyEvent *X, enum HandleEventResult *result)
 {
   enum nxagentSpecialKeystroke stroke = find_keystroke(X);
@@ -508,13 +512,6 @@ Bool nxagentCheckSpecialKeystroke(XKeyEvent *X, enum HandleEventResult *result)
    * FIXME: We should use the keysym instead that the keycode
    *        here.
    */
-
-  if (X -> keycode == 130 && nxagentIpaq)
-  {
-    *result = doStartKbd;
-
-    return True;
-  }
 
   switch (stroke) {
 #ifdef DEBUG_TREE
@@ -634,10 +631,13 @@ Bool nxagentCheckSpecialKeystroke(XKeyEvent *X, enum HandleEventResult *result)
       if (X->type == KeyRelease)
 	nxagentInitKeystrokes(True);
       break;
+    case KEYSTROKE_AUTOGRAB:
+      *result = doAutoGrab;
+      break;
     case KEYSTROKE_NOTHING: /* do nothing. difference to KEYSTROKE_IGNORE is the return value */
     case KEYSTROKE_END_MARKER: /* just to make gcc STFU */
     case KEYSTROKE_MAX:
       break;
   }
-  return (*result == doNothing);
+  return (*result != doNothing);
 }

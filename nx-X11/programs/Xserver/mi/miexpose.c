@@ -126,7 +126,6 @@ exposing is done by the backing store's GraphicsExpose function, of course.
 
 */
 
-#ifndef NXAGENT_SERVER
 RegionPtr
 miHandleExposures(pSrcDrawable, pDstDrawable,
 		  pGC, srcx, srcy, width, height, dstx, dsty, plane)
@@ -152,7 +151,7 @@ miHandleExposures(pSrcDrawable, pDstDrawable,
 				   the window background
 				*/
     WindowPtr pSrcWin;
-    BoxRec expBox;
+    BoxRec expBox = { 0, };
     Bool extents;
 
     /* This prevents warning about pscr not being used. */
@@ -373,7 +372,6 @@ miHandleExposures(pSrcDrawable, pDstDrawable,
 	return NULL;
     }
 }
-#endif
 
 /* send GraphicsExpose events, or a NoExpose event, based on the region */
 
@@ -491,7 +489,6 @@ miSendExposures(pWin, pRgn, dx, dy)
     free(pEvent);
 }
 
-#ifndef NXAGENT_SERVER
 void 
 miWindowExposures(pWin, prgn, other_exposed)
     WindowPtr pWin;
@@ -580,7 +577,6 @@ miWindowExposures(pWin, prgn, other_exposed)
     else if (exposures && exposures != prgn)
 	RegionDestroy(exposures);
 }
-#endif
 
 /*
     this code is highly unlikely.  it is not haile selassie.
@@ -628,7 +624,6 @@ tossGC (
     return 0;
 }
 
-#ifndef NXAGENT_SERVER
 void
 miPaintWindow(pWin, prgn, what)
 register WindowPtr pWin;
@@ -654,8 +649,8 @@ int what;
     ChangeGCVal newValues [COUNT_BITS] = {{ 0 }};
 
     BITS32 gcmask, index, mask;
-    RegionRec prgnWin;
-    DDXPointRec oldCorner;
+    RegionRec prgnWin = {0};
+    DDXPointRec oldCorner = {0};
     BoxRec box = {0};
     WindowPtr	pBgWin;
     GCPtr pGC;
@@ -762,7 +757,10 @@ int what;
 	if (screenContext[i] == (GCPtr)NULL)
 	{
 	    if (!ResType && !(ResType = CreateNewResourceType(tossGC)))
+	    {
+		free(prect);
 		return;
+	    }
 	    screenContext[i] = CreateGC((DrawablePtr)pWin, (BITS32) 0,
 					(XID *)NULL, &status);
 	    if (!screenContext[i])
@@ -883,7 +881,6 @@ int what;
 	FreeScratchGC(pGC);
     }
 }
-#endif
 
 /* MICLEARDRAWABLE -- sets the entire drawable to the background color of
  * the GC.  Useful when we have a scratch drawable and need to initialize 

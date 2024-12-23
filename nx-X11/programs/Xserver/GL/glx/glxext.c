@@ -64,6 +64,7 @@ static void ResetClientState(int clientIndex)
     if (cl->returnBuf) free(cl->returnBuf);
     if (cl->largeCmdBuf) free(cl->largeCmdBuf);
     if (cl->currentContexts) free(cl->currentContexts);
+    if (cl->GLClientextensions) free(cl->GLClientextensions);
     memset(cl, 0, sizeof(__GLXclientState));
     /*
     ** By default, assume that the client supports
@@ -71,9 +72,6 @@ static void ResetClientState(int clientIndex)
     */
     cl->GLClientmajorVersion = 1;
     cl->GLClientminorVersion = 0;
-    if (cl->GLClientextensions)
-	free(cl->GLClientextensions);
-
 }
 
 /*
@@ -389,12 +387,15 @@ __GLXcontext *__glXForceCurrent(__GLXclientState *cl, GLXContextTag tag,
 
 /************************************************************************/
 
-#ifndef NXAGENT_SERVER
 
 /*
 ** Top level dispatcher; all commands are executed from here down.
 */
+#ifdef NXAGENT_SERVER
+static int xorg__glXDispatch(ClientPtr client)
+#else
 static int __glXDispatch(ClientPtr client)
+#endif
 {
     REQUEST(xGLXSingleReq);
     CARD8 opcode;
@@ -450,8 +451,6 @@ static int __glXDispatch(ClientPtr client)
 	proc = __glXSingleTable[opcode];
     return (*proc)(cl, (GLbyte *) stuff);
 }
-
-#endif /* NXAGENT_SERVER */
 
 
 int __glXNoSuchSingleOpcode(__GLXclientState *cl, GLbyte *pc)

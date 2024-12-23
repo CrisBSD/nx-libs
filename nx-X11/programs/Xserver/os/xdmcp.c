@@ -17,22 +17,13 @@
 #include <dix-config.h>
 #endif
 
-#ifdef WIN32
-#include <nx-X11/Xwinsock.h>
-#define XSERV_t
-#define TRANS_SERVER
-#define TRANS_REOPEN
-#include <nx-X11/Xtrans/Xtrans.h>
-#endif
 
 #include <nx-X11/Xos.h>
 
-#if !defined(WIN32)
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -688,15 +679,15 @@ XdmcpBlockHandler(
     struct timeval  **wt,
     void *	    pReadmask)
 {
-    fd_set *LastSelectMask = (fd_set*)pReadmask;
+    fd_set *last_select_mask = (fd_set*)pReadmask;
     CARD32 millisToGo;
 
     if (state == XDM_OFF)
 	return;
-    FD_SET(xdmcpSocket, LastSelectMask);
+    FD_SET(xdmcpSocket, last_select_mask);
 #if defined(IPv6) && defined(AF_INET6)
     if (xdmcpSocket6 >= 0)
-	FD_SET(xdmcpSocket6, LastSelectMask);
+	FD_SET(xdmcpSocket6, last_select_mask);
 #endif
     if (timeOutTime == 0)
 	return;
@@ -719,7 +710,7 @@ XdmcpWakeupHandler(
     int	    i,
     void * pReadmask)
 {
-    fd_set* LastSelectMask = (fd_set*)pReadmask;
+    fd_set* last_select_mask = (fd_set*)pReadmask;
 
 #ifdef NX_TRANS_SOCKET
 
@@ -732,16 +723,16 @@ XdmcpWakeupHandler(
 	return;
     if (i > 0)
     {
-	if (FD_ISSET(xdmcpSocket, LastSelectMask))
+	if (FD_ISSET(xdmcpSocket, last_select_mask))
 	{
 	    receive_packet(xdmcpSocket);
-	    FD_CLR(xdmcpSocket, LastSelectMask);
+	    FD_CLR(xdmcpSocket, last_select_mask);
 	} 
 #if defined(IPv6) && defined(AF_INET6)
-	if (xdmcpSocket6 >= 0 && FD_ISSET(xdmcpSocket6, LastSelectMask))
+	if (xdmcpSocket6 >= 0 && FD_ISSET(xdmcpSocket6, last_select_mask))
 	{
 	    receive_packet(xdmcpSocket6);
-	    FD_CLR(xdmcpSocket6, LastSelectMask);
+	    FD_CLR(xdmcpSocket6, last_select_mask);
 	} 
 #endif
     }
@@ -766,12 +757,12 @@ static void
 XdmcpSelectHost(
     struct sockaddr	*host_sockaddr,
     int			host_len,
-    ARRAY8Ptr		AuthenticationName)
+    ARRAY8Ptr		auth_name)
 {
     state = XDM_START_CONNECTION;
     memmove(&req_sockaddr, host_sockaddr, host_len);
     req_socklen = host_len;
-    XdmcpSetAuthentication (AuthenticationName);
+    XdmcpSetAuthentication (auth_name);
     send_packet();
 }
 
@@ -786,11 +777,11 @@ static void
 XdmcpAddHost(
     struct sockaddr    *from,
     int			fromlen,
-    ARRAY8Ptr		AuthenticationName,
+    ARRAY8Ptr		auth_name,
     ARRAY8Ptr		hostname,
     ARRAY8Ptr		status)
 {
-    XdmcpSelectHost(from, fromlen, AuthenticationName);
+    XdmcpSelectHost(from, fromlen, auth_name);
 }
 
 /*
@@ -1075,8 +1066,6 @@ send_query_msg(void)
     XdmcpWriteARRAYofARRAY8 (&buffer, &AuthenticationNames);
     if (broadcast)
     {
-	int i;
-
 	for (i = 0; i < NumBroadcastAddresses; i++)
 	    XdmcpFlush (xdmcpSocket, &buffer, (XdmcpNetaddr) &BroadcastAddresses[i],
 			sizeof (struct sockaddr_in));
@@ -1506,9 +1495,6 @@ get_addr_by_name(
     struct hostent *hep;
 #ifdef XTHREADS_NEEDS_BYNAMEPARAMS
     _Xgethostbynameparams hparams;
-#endif
-#if defined(WIN32) && defined(TCPCONN)
-    _XSERVTransWSAStartup(); 
 #endif
     if (!(hep = _XGethostbyname(namestr, hparams)))
     {

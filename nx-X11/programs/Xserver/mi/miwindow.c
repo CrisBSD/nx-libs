@@ -1037,6 +1037,7 @@ miSetShape(pWin)
 			     (pWin, 0, 0, pOldClip,
 			      pWin->drawable.x, pWin->drawable.y);
 
+#ifdef NXAGENT_SERVER
 	/*
 	 * Applies to NXAGENT_SERVER builds:
 	 *
@@ -1052,9 +1053,13 @@ miSetShape(pWin)
 	 * pointer to the parent, so maybe doesn't change
 	 * the attribute of the window itself. This is to
 	 * be better investigated.
+	 * Update: Red Hat fixed this bug the same way (BZ 676270).
 	 */
 
 	if (WasViewable && pOldClip)
+#else
+	if (WasViewable)
+#endif
 	    RegionDestroy(pOldClip);
 	if (bsExposed)
 	{

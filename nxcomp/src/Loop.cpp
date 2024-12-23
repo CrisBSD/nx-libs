@@ -1565,6 +1565,10 @@ int NXTransRunning(int fd)
   return (control != NULL);
 }
 
+//
+// FIXME: why timeval? Passing milliseconds would be more convenient,
+// the timeval struct/T_timestamp could be built on demand.
+//
 int NXTransContinue(struct timeval *selectTs)
 {
   if (control != NULL)
@@ -13304,13 +13308,18 @@ void PrintConnectionInfo()
 
 void PrintVersionInfo()
 {
-  cerr << "NXPROXY - " << "Version "
+  cerr << "NXPROXY - Version "
+#ifdef NX_VERSION_CUSTOM
+       << NX_VERSION_CUSTOM << " ("
+#endif
        << control -> LocalVersionMajor << "."
        << control -> LocalVersionMinor << "."
        << control -> LocalVersionPatch << "."
-       << control -> LocalVersionMaintenancePatch;
-
-  cerr << endl;
+       << control -> LocalVersionMaintenancePatch
+#ifdef NX_VERSION_CUSTOM
+       << ")"
+#endif
+       << endl;
 }
 
 void PrintCopyrightInfo()

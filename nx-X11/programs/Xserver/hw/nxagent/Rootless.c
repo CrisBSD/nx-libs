@@ -52,8 +52,7 @@
 #undef  DEBUG
 
 /*
- * Assigned at the time the root window is
- * initialized.
+ * Assigned at the time the root window is initialized.
  */
 
 typedef struct
@@ -71,10 +70,9 @@ typedef struct
 nxagentWMHints;
 
 /*
- * This structure is compatible with 32
- * and 64 bit library interface. It has
- * been copied from Xatomtype.h and it's
- * a parameter of XChangeProperty().
+ * This structure is compatible with 32 and 64 bit library
+ * interface. It has been copied from Xatomtype.h and it's a parameter
+ * of XChangeProperty().
  */
 
 typedef struct
@@ -110,6 +108,7 @@ static TopLevelParentMap topLevelParentMap = { NULL, 0, 0 };
 
 static void nxagentRemovePropertyFromList(void);
 
+#if 0
 /*
  * This is currently unused.
  */
@@ -120,32 +119,28 @@ static void nxagentPrintRootlessTopLevelWindowMap(void);
 
 void nxagentPrintRootlessTopLevelWindowMap(void)
 {
-  int i;
-
-  fprintf(stderr, "nxagentPrintRootlessTopLevelWindowMap: Map size is [%d] num of entry [%d].\n",
+  fprintf(stderr, "%s: Map size is [%d] num of entry [%d].\n", __func__,
               topLevelParentMap.size, topLevelParentMap.next);
 
-  for (i = 0; i < topLevelParentMap.next; i++)
+  for (int i = 0; i < topLevelParentMap.next; i++)
   {
-    fprintf(stderr, "nxagentPrintRootlessTopLevelWindowMap: [%d] pWin at [%p] XID at [%ld].\n",
+    fprintf(stderr, "%s:: [%d] pWin at [%p] XID at [%ld].\n", __func__,
                 i, (void *) topLevelParentMap.elt[i].pWin, (long int) topLevelParentMap.elt[i].xid);
   }
 }
 
 #endif
+#endif
 
 void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w)
 {
-  int i;
-
-  for (i = 0; i < topLevelParentMap.next; i++)
+  for (int i = 0; i < topLevelParentMap.next; i++)
   {
     if (topLevelParentMap.elt[i].pWin == pWin)
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentRootlessAddTopLevelWindow: WARNING! "
-                  "Trying to add duplicated entry window at [%p] xid [%ld].\n",
-                      (void *) pWin, w);
+      fprintf(stderr, "%s: WARNING! Trying to add duplicated entry window at [%p] xid [%d].\n",
+                  __func__, (void *) pWin, w);
       #endif
 
       topLevelParentMap.elt[i].xid = w;
@@ -164,7 +159,7 @@ void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w)
     if (ptr == NULL)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentRootlessAddTopLevelWindow: Warning failed to allocate memory.\n");
+      fprintf(stderr, "%s: Warning failed to allocate memory.\n", __func__);
       #endif
 
       return;
@@ -181,24 +176,19 @@ void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w)
 
 WindowPtr nxagentRootlessTopLevelWindow(Window w)
 {
-  int i;
-
-  for (i = 0; i < topLevelParentMap.next; i++)
+  for (int i = 0; i < topLevelParentMap.next; i++)
   {
     if (w == topLevelParentMap.elt[i].xid)
     {
       return topLevelParentMap.elt[i].pWin;
     }
   }
-
   return NULL;
 }
 
 void nxagentRootlessDelTopLevelWindow(WindowPtr pWin)
 {
-  int i;
-
-  for (i = 0; i < topLevelParentMap.next; i++)
+  for (int i = 0; i < topLevelParentMap.next; i++)
   {
     if (pWin == topLevelParentMap.elt[i].pWin)
     {
@@ -210,29 +200,21 @@ void nxagentRootlessDelTopLevelWindow(WindowPtr pWin)
   }
 }
 
-Window nxagentRootlessWMTopLevelWindow(WindowPtr pWin);
-
 void nxagentConfigureRootlessWindow(WindowPtr pWin, int x, int y, int w, int h, int bw,
                                         WindowPtr pSib, int stack_mode, Mask mask)
 {
-  XWindowChanges changes;
-  Window sibw = 0;
-
-  changes.x = x;
-  changes.y = y;
-  changes.width = w;
-  changes.height = h;
-  changes.border_width = bw;
-  changes.stack_mode = stack_mode;
+  XWindowChanges changes = {
+    .x = x,
+    .y = y,
+    .width = w,
+    .height = h,
+    .border_width = bw,
+    .stack_mode = stack_mode
+  };
 
   if (pSib)
   {
-    sibw = nxagentWindow(pSib);
-  }
-
-  if (sibw)
-  {
-    changes.sibling = sibw;
+    changes.sibling = nxagentWindow(pSib);
   }
 
   XConfigureWindow(nxagentDisplay, nxagentWindow(pWin), mask, &changes);
@@ -247,30 +229,27 @@ void nxagentCirculateRootlessWindows(int direction)
 
 Bool nxagentRootlessTreesMatch(void)
 {
-  Window root_return;
-  Window parent_return;
-  Window *children_return = NULL;
+  XlibWindow root_return;
+  XlibWindow parent_return;
+  XlibWindow *children_return = NULL;
   unsigned int nChildrenReturn;
   WindowPtr pTestWin = screenInfo.screens[0]->root -> firstChild;
   Bool treesMatch = True;
-  Status result;
 
-  result = XQueryTree(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
-                          &root_return, &parent_return, &children_return, &nChildrenReturn);
+  Status result = XQueryTree(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
+                                 &root_return, &parent_return, &children_return, &nChildrenReturn);
 
   if (!result)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentRootlessTreesMatch: WARNING! Failed QueryTree request.\n");
+    fprintf(stderr, "%s: WARNING! Failed QueryTree request.\n", __func__);
     #endif
-
     return False;
   }
 
   while (nChildrenReturn > 0)
   {
     WindowPtr pW = nxagentWindowPtr(children_return[--nChildrenReturn]);
-
     if (!pW)
     {
       pW = nxagentRootlessTopLevelWindow(children_return[nChildrenReturn]);
@@ -289,10 +268,7 @@ Bool nxagentRootlessTreesMatch(void)
     }
   }
 
-  if (children_return)
-  {
-    XFree(children_return);
-  }
+  SAFE_XFree(children_return);
 
   return treesMatch;
 }
@@ -305,27 +281,19 @@ void nxagentRootlessRestack(Window children[], unsigned int nchildren)
 void nxagentRootlessRestack(unsigned long children[], unsigned int nchildren)
 #endif
 {
-  WindowPtr *toplevel;
-  unsigned int ntoplevel;
-  int i;
-  WindowPtr pWin;
-  ClientPtr pClient;
-  XID values[2];
-  Mask mask;
-
-  toplevel = malloc(sizeof(WindowPtr) * nchildren);
+  WindowPtr *toplevel = malloc(sizeof(WindowPtr) * nchildren);
 
   if (!toplevel)
   {
-    /* FIXME: Is this too much and we and simply return here? */
+    /* FIXME: Is this too much and we should simply return here? */
     FatalError("nxagentRootlessRestack: malloc() failed.");
   }
 
-  ntoplevel = 0;
+  unsigned int ntoplevel = 0;
 
-  for(i = 0; i < nchildren; i++)
+  for(int i = 0; i < nchildren; i++)
   {
-    pWin = nxagentWindowPtr(children[i]);
+    WindowPtr pWin = nxagentWindowPtr(children[i]);
 
     if (!pWin)
     {
@@ -340,72 +308,68 @@ void nxagentRootlessRestack(unsigned long children[], unsigned int nchildren)
 
   if (!ntoplevel)
   {
-    free(toplevel);
+    SAFE_free(toplevel);
     return;
   }
 
   #ifdef DEBUG
 
-  fprintf(stderr, "nxagentRootlessRestack: External top level windows before restack:");
+  fprintf(stderr, "%s: External top level windows before restack:\n", __func__);
 
-  for (i = 0; i < ntoplevel; i++)
+  for (int i = 0; i < ntoplevel; i++)
   {
-    fprintf(stderr, "nxagentRootlessRestack: [%p]\n", toplevel[i]);
+    fprintf(stderr, "%s: [%p]\n", __func__, (void *)toplevel[i]);
   }
 
-  fprintf(stderr, "nxagentRootlessRestack: Internal top level windows before restack:");
+  fprintf(stderr, "%s: Internal top level windows before restack:\n", __func__);
 
-  for (pWin = screenInfo.screens[0]->root -> firstChild; pWin != NULL; pWin = pWin -> nextSib)
+  for (WindowPtr pWin = screenInfo.screens[0]->root -> firstChild; pWin != NULL; pWin = pWin -> nextSib)
   {
-    fprintf(stderr, "nxagentRootlessRestack: [%p]\n", pWin);
+    fprintf(stderr, "%s: [%p]\n", __func__, (void *)pWin);
   }
 
   #endif
 
-  pWin = screenInfo.screens[0]->root -> firstChild;
+  WindowPtr pWin = screenInfo.screens[0]->root -> firstChild;
 
-  values[1] = (XID) Above;
-
-  while(ntoplevel-- > 0 && pWin != NULL)
+  for (int i = ntoplevel; i-- && pWin; pWin = toplevel[i] -> nextSib)
   {
-    if (toplevel[ntoplevel] != pWin)
+    XID values[2] = {0, (XID) Above};
+
+    if (toplevel[i] != pWin)
     {
-      mask = CWSibling | CWStackMode;
+      Mask mask = CWSibling | CWStackMode;
       values[0] = pWin -> drawable.id;
-      pClient = wClient(toplevel[ntoplevel]);
+      ClientPtr pClient = wClient(toplevel[i]);
       nxagentScreenTrap = 1;
-      ConfigureWindow(toplevel[ntoplevel], mask, (XID *) values, pClient);
+      ConfigureWindow(toplevel[i], mask, (XID *) values, pClient);
       nxagentScreenTrap = 0;
 
       #ifdef TEST
-      fprintf(stderr, "nxagentRootlessRestack: Restacked window [%p].\n", (void*) toplevel[ntoplevel]);
+      fprintf(stderr, "%s: Restacked window [%p].\n", __func__, (void*) toplevel[i]);
       #endif
     }
-
-    pWin = toplevel[ntoplevel] -> nextSib;
   }
 
   #ifdef DEBUG
 
-  fprintf(stderr, "nxagentRootlessRestack: External top level windows after restack:");
+  fprintf(stderr, "%s: External top level windows after restack:\n", __func__);
 
-  ntoplevel = i;
-
-  for (i = 0; i < ntoplevel; i++)
+  for (int i = 0; i < ntoplevel; i++)
   {
-    fprintf(stderr, "nxagentRootlessRestack: [%p]\n", toplevel[i]);
+    fprintf(stderr, "%s: [%p]\n", __func__, (void *)toplevel[i]);
   }
 
-  fprintf(stderr, "nxagentRootlessRestack: Internal top level windows after restack:");
+  fprintf(stderr, "%s: Internal top level windows after restack:\n", __func__);
 
   for (pWin = screenInfo.screens[0]->root -> firstChild; pWin != NULL; pWin = pWin -> nextSib)
   {
-    fprintf(stderr, "nxagentRootlessRestack: [%p]\n", pWin);
+    fprintf(stderr, "%s: [%p]\n", __func__, (void *)pWin);
   }
 
   #endif
 
-  free(toplevel);
+  SAFE_free(toplevel);
 
   return;
 }
@@ -417,7 +381,7 @@ void nxagentRootlessRestack(unsigned long children[], unsigned int nchildren)
 Window nxagentRootlessWindowParent(WindowPtr pWin)
 {
   #ifdef TEST
-  fprintf(stderr, "nxagentRootlessWindowParent: Called for window at [%p][%ld] with parent [%p][%ld].\n",
+  fprintf(stderr, "%s: Called for window at [%p][%d] with parent [%p][%d].\n", __func__,
               (void *) pWin, nxagentWindowPriv(pWin)->window, (void *) pWin->parent,
                   (pWin->parent ? nxagentWindowPriv(pWin->parent)->window : 0));
   #endif
@@ -436,13 +400,11 @@ Window nxagentRootlessWindowParent(WindowPtr pWin)
   }
 }
 
-int nxagentExportAllProperty(pWin)
-  WindowPtr pWin;
+int nxagentExportAllProperty(WindowPtr pWin)
 {
-  PropertyPtr pProp;
   int total = 0;
 
-  for (pProp = wUserProps(pWin); pProp; pProp = pProp->next)
+  for (PropertyPtr pProp = wUserProps(pWin); pProp; pProp = pProp->next)
   {
     total += nxagentExportProperty(pWin,
                                        pProp->propertyName,
@@ -456,18 +418,15 @@ int nxagentExportAllProperty(pWin)
   return total;
 }
 
-int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
-    WindowPtr   pWin;
-    Atom        property, type;
-    int         format, mode;
-    unsigned long nUnits;
-    void        *value;
+int nxagentExportProperty(WindowPtr pWin,
+                          Atom property,
+                          Atom type,
+                          int format,
+                          int mode,
+                          unsigned long nUnits,
+                          void *value)
 {
-  const char *propertyS, *typeS;
-  Atom propertyX, typeX;
   char *output = NULL;
-  nxagentWMHints wmHints;
-  nxagentPropWMHints propHints;
   Bool export = False;
   Bool freeMem = False;
 
@@ -476,16 +435,16 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
     return 0;
   }
 
-  propertyS = NameForAtom(property);
-  typeS = NameForAtom(type);
+  const char *propertyS = NameForAtom(property);
+  const char *typeS = NameForAtom(type);
 
   if (strncmp(propertyS, "WM_", 3) != 0 &&
           strncmp(propertyS, "_NET_", 5) != 0 &&
               strcmp(propertyS, "_KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR") != 0)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentExportProperty: WARNING! Ignored ChangeProperty "
-                "on %swindow %lx property %s type %s nUnits %ld format %d\n",
+    fprintf(stderr, "%s: WARNING! Ignored ChangeProperty on %swindow [0x%x] property [%s] "
+                "type [%s] nUnits [%ld] format [%d]\n", __func__,
                     nxagentWindowTopLevel(pWin) ? "toplevel " : "", nxagentWindow(pWin),
                         validateString(propertyS), validateString(typeS), nUnits, format);
     #endif
@@ -503,10 +462,13 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
   #ifdef _XSERVER64
   else if (strcmp(typeS, "CARDINAL") == 0 || strcmp(typeS, "WM_SIZE_HINTS") == 0)
   {
-    /* FIXME: is it okay here to ignore malloc fails? */
     unsigned long *buffer = malloc(nUnits * sizeof(*buffer));
+    if (buffer == NULL)
+    {
+      FatalError("%s: malloc() failed.", __func__);
+    }
+
     int *input = value;
-    int i;
 
     if (buffer)
     {
@@ -514,7 +476,7 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
       export = True;
       output = (char*) buffer;
 
-      for (i = 0; i < nUnits; i++)
+      for (int i = 0; i < nUnits; i++)
       {
         buffer[i] = input[i];
       }
@@ -524,7 +486,7 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
   else if (strcmp(typeS, "WM_HINTS") == 0)
   {
     ClientPtr pClient = wClient(pWin);
-    wmHints = *(nxagentWMHints*)value;
+    nxagentWMHints wmHints = *(nxagentWMHints*)value;
 
     wmHints.flags |= InputHint;
     wmHints.input = True;
@@ -533,15 +495,17 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
      * Initialize the structure used in XChangeProperty().
      */
 
-    propHints.flags = wmHints.flags;
-    propHints.input = (wmHints.input == True ? 1 : 0);
-    propHints.initialState = wmHints.initial_state;
-    propHints.iconPixmap = wmHints.icon_pixmap;
-    propHints.iconWindow = wmHints.icon_window;
-    propHints.iconX = wmHints.icon_x;
-    propHints.iconY = wmHints.icon_y;
-    propHints.iconMask = wmHints.icon_mask;
-    propHints.windowGroup = wmHints.window_group;
+    nxagentPropWMHints propHints = {
+      .flags = wmHints.flags,
+      .input = (wmHints.input == True ? 1 : 0),
+      .initialState = wmHints.initial_state,
+      .iconPixmap = wmHints.icon_pixmap,
+      .iconWindow = wmHints.icon_window,
+      .iconX = wmHints.icon_x,
+      .iconY = wmHints.icon_y,
+      .iconMask = wmHints.icon_mask,
+      .windowGroup = wmHints.window_group
+    };
 
     output = (char*) &propHints;
     export = True;
@@ -565,8 +529,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
         propHints.flags &= ~IconPixmapHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentExportProperty: WARNING! Failed to look up icon pixmap %x from hint "
-                    "exporting property %s type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up icon pixmap [0x%x] from hint "
+                    "exporting property [%s] type [%s] on window [%p].\n", __func__,
                         (unsigned int) wmHints.icon_pixmap, propertyS, typeS,
                             (void *) pWin);
         #endif
@@ -587,8 +551,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
         propHints.flags &= ~IconWindowHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentExportProperty: WARNING! Failed to look up icon window %x from hint "
-                    "exporting property %s type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up icon window [0x%x] from hint "
+                    "exporting property [%s] type [%s] on window [%p].\n", __func__,
                         (unsigned int) wmHints.icon_window, propertyS, typeS,
                             (void *) pWin);
         #endif
@@ -609,8 +573,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
         propHints.flags &= ~IconMaskHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentExportProperty: WARNING! Failed to look up icon mask %x from hint "
-                    "exporting property %s type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up icon mask [0x%x] from hint "
+                    "exporting property [%s] type [%s] on window [%p].\n", __func__,
                         (unsigned int) wmHints.icon_mask, propertyS, typeS,
                             (void *) pWin);
         #endif
@@ -631,8 +595,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
         propHints.flags &= ~WindowGroupHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentExportProperty: WARNING! Failed to look up window group %x from hint "
-                    "exporting property %s type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up window group [0x%x] from hint "
+                    "exporting property [%s] type [%s] on window [%p].\n", __func__,
                         (unsigned int) wmHints.window_group, propertyS, typeS,
                             (void *) pWin);
         #endif
@@ -644,13 +608,12 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
     XlibAtom *atoms = malloc(nUnits * sizeof(*atoms));
     Atom *input = value;
     const char *atomName = NULL;
-    int i;
     int j = 0;
 
     if (!atoms)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentExportProperty: WARNING! malloc() failed for '%s'- bailing out.\n", typeS);
+      fprintf(stderr, "%s: WARNING! malloc() failed for '[%s]'- bailing out.\n", __func__, typeS);
       #endif
       return False;
     }
@@ -659,16 +622,16 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
     export = True;
     output = (char *) atoms;
 
-    for (i = 0; i < nUnits; i++)
+    for (int i = 0; i < nUnits; i++)
     {
       /*
-       * Exporting the _NET_WM_PING property could
-       * result in rootless windows being grayed out
-       * when the compiz window manager is running.
+       * Exporting the _NET_WM_PING property could result in rootless
+       * windows being grayed out when the compiz window manager is
+       * running.
        *
-       * Better solution would probably be to handle
-       * the communication with the window manager
-       * instead of just getting rid of the property.
+       * Better solution would probably be to handle the communication
+       * with the window manager instead of just getting rid of the
+       * property.
        */
 
       if ((atomName = NameForAtom(input[i])) != NULL &&
@@ -679,7 +642,7 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
         if (atoms[j] == None)
         {
           #ifdef WARNING
-          fprintf(stderr, "nxagentExportProperty: WARNING! Failed to convert local atom %ld [%s].\n",
+          fprintf(stderr, "%s: WARNING! Failed to convert local atom [%ld] [%s].\n", __func__,
                       (long int) input[i], validateString(atomName));
           #endif
         }
@@ -689,8 +652,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
       #ifdef TEST
       else
       {
-        fprintf(stderr, "nxagentExportProperty: WARNING! "
-                    "Not exporting the _NET_WM_PING property.\n");
+        fprintf(stderr, "%s: WARNING! "
+		"Not exporting the _NET_WM_PING property.\n", __func__);
       }
       #endif
     }
@@ -702,13 +665,11 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
     Window *input = value;
     XlibWindow *wind = malloc(nUnits * sizeof(*wind));
     ClientPtr pClient = wClient(pWin);
-    WindowPtr pWindow;
-    int i;
 
     if (!wind)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentExportProperty: WARNING! malloc() failed for '%s' - bailing out.\n", typeS);
+      fprintf(stderr, "%s: WARNING! malloc() failed for '[%s]' - bailing out.\n", __func__, typeS);
       #endif
       return False;
     }
@@ -717,10 +678,10 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
     export = True;
     output = (char*) wind;
 
-    for (i = 0; i < nUnits; i++)
+    for (int i = 0; i < nUnits; i++)
     {
-      pWindow = (WindowPtr)SecurityLookupWindow(input[i], pClient,
-                                                    DixDestroyAccess);
+      WindowPtr pWindow = (WindowPtr)SecurityLookupWindow(input[i], pClient,
+                                                              DixDestroyAccess);
       if ((input[i] != None) && pWindow)
       {
         wind[i] = nxagentWindow(pWindow);
@@ -728,19 +689,16 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
       else
       {
         #ifdef WARNING
-        fprintf(stderr, "nxagentExportProperty: WARNING! Failed to look up window %ld "
-                    "exporting property %s type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up window [%ld] "
+                    "exporting property [%s] type [%s] on window [%p].\n", __func__,
                         (long int) input[i], propertyS, typeS, (void *) pWin);
         #endif
 
         /*
-         * It seems that clients specifie
-         * strange windows, perhaps are
-         * not real windows so we can try
-         * to let them pass anyway.
+         * It seems that clients specify strange windows, perhaps are
+         * not real windows so we can try to let them pass anyway.
          *
          * wind[i] = None;
-         *
          */
       }
     }
@@ -748,13 +706,13 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
 
   if (export)
   {
-    propertyX = nxagentLocalToRemoteAtom(property);
-    typeX = nxagentLocalToRemoteAtom(type);
+    XlibAtom propertyX = nxagentLocalToRemoteAtom(property);
+    XlibAtom typeX = nxagentLocalToRemoteAtom(type);
 
     if (propertyX == None || typeX == None)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentExportProperty: WARNING! Failed to convert local atom.\n");
+      fprintf(stderr, "%s: WARNING! Failed to convert local atom.\n", __func__);
       #endif
 
       export = 0;
@@ -762,8 +720,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
     else
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentExportProperty: Property [%lu] format [%i] "
-                  "units [%lu].\n", propertyX, format, nUnits);
+      fprintf(stderr, "%s: Property [%u] format [%i] units [%lu].\n", __func__,
+                  propertyX, format, nUnits);
       #endif
 
       if ((format >> 3) * nUnits + sizeof(xChangePropertyReq) <
@@ -774,15 +732,14 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
       }
       else if (mode == PropModeReplace)
       {
-        int n;
-        char *data;
+        char * data = (char *) output;
 
         XDeleteProperty(nxagentDisplay, nxagentWindow(pWin), propertyX);
 
-        data = (char *) output;
-
         while (nUnits > 0)
         {
+          int n;
+
           if ((format >> 3) * nUnits + sizeof(xChangePropertyReq) <
                   (MAX_REQUEST_SIZE << 2))
           {
@@ -805,8 +762,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
       else
       {
         #ifdef WARNING
-        fprintf(stderr, "nxagentExportProperty: WARNING! "
-                    "Property [%lu] too long.\n", (long unsigned int)propertyX);
+        fprintf(stderr, "%s: WARNING! Property [%lu] too long.\n", __func__,
+                    (long unsigned int)propertyX);
         #endif
 
         goto nxagentExportPropertyError;
@@ -818,8 +775,8 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
   else
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentExportProperty: WARNING! Ignored ChangeProperty "
-                "on %swindow %x property %s type %s nUnits %ld format %d\n",
+    fprintf(stderr, "%s: WARNING! Ignored ChangeProperty on %swindow [0x%x] property [%s] "
+                "type [%s] nUnits [%ld] format [%d]\n", __func__,
                     nxagentWindowTopLevel(pWin) ? "toplevel " : "",
                         nxagentWindow(pWin), validateString(propertyS), validateString(typeS),
                             nUnits, format);
@@ -830,27 +787,22 @@ int nxagentExportProperty(pWin, property, type, format, mode, nUnits, value)
 
   if (freeMem)
   {
-    free(output);
+    SAFE_free(output);
   }
 
   return export;
 }
 
 void nxagentImportProperty(Window window,
-                           Atom property,
-                           Atom type,
+                           XlibAtom property,
+                           XlibAtom type,
                            int format,
                            unsigned long nitems,
                            unsigned long bytes_after,
                            unsigned char *buffer)
 {
-  Atom propertyL;
-  Atom typeL;
-
-  WindowPtr pWin;
   Bool import = False;
   Bool freeMem = False;
-  nxagentWMHints wmHints;
 
   typedef struct {
       CARD32 state;
@@ -859,68 +811,67 @@ void nxagentImportProperty(Window window,
   WMState wmState;
 
   char *output = NULL;
-  const char *typeS;
 
-  pWin = nxagentWindowPtr(window);
+  WindowPtr pWin = nxagentWindowPtr(window);
 
   if (pWin == NULL)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentImportProperty: Failed to look up remote window %lx  property [%ld] exiting.\n",
-                window, property);
+    fprintf(stderr, "%s: Failed to look up remote window [0x%x]  property [%d] exiting.\n",
+                __func__, window, property);
     #endif
 
     return;
   }
 
-  propertyL = nxagentRemoteToLocalAtom(property);
+  Atom propertyL = nxagentRemoteToLocalAtom(property);
 
   if (!ValidAtom(propertyL))
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentImportProperty: Failed to convert remote property atom.\n");
+    fprintf(stderr, "%s: Failed to convert remote property atom.\n", __func__);
     #endif
 
     return;
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentImportProperty: Window %lx property [%ld]: %s\n",
+  fprintf(stderr, "%s: Window [0x%x] property [%d]: [%s]\n", __func__,
               window, property, validateString(NameForAtom(propertyL)));
   #endif
 
   /*
-   * We settle a property size limit of
-   * 256K beyond which we simply ignore them.
+   * We settle a property size limit of 256K beyond which we simply
+   * ignore them.
    */
 
-  typeL = nxagentRemoteToLocalAtom(type);
-  typeS = NameForAtom(typeL);
+  Atom typeL = nxagentRemoteToLocalAtom(type);
+  const char *typeS = NameForAtom(typeL);
 
   if (buffer == NULL && (nitems > 0))
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentImportProperty: Failed to retrieve remote property [%ld] %s on Window %ld\n",
+    fprintf(stderr, "%s: Failed to retrieve remote property [%ld] [%s] on Window [%ld]\n", __func__,
                 (long int) property, validateString(NameForAtom(propertyL)), (long int) window);
     #endif
   }
   else if (bytes_after != 0)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentImportProperty: Remote property bigger than maximum limits.\n");
+    fprintf(stderr, "%s: Remote property bigger than maximum limits.\n", __func__);
     #endif
   }
   else if (!ValidAtom(typeL))
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentImportProperty: Failed to convert remote atoms [%ld].\n",
+    fprintf(stderr, "%s: Failed to convert remote atoms [%ld].\n", __func__,
                 (long int) type);
     #endif
   }
   else if (nitems == 0)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentImportProperty: Importing void property.\n");
+    fprintf(stderr, "%s: Importing void property.\n", __func__);
     #endif
 
     import = True;
@@ -936,16 +887,13 @@ void nxagentImportProperty(Window window,
   else if (strcmp(typeS, "WM_STATE") == 0)
   {
     /*
-     * Contents of property of type WM_STATE
-     * are {CARD32 state, WINDOW icon}. Only
-     * the icon field has to be modified before
-     * importing the property.
+     * Contents of property of type WM_STATE are {CARD32 state, WINDOW
+     * icon}. Only the icon field has to be modified before importing
+     * the property.
      */
 
-    WindowPtr pIcon;
-
     wmState = *(WMState*)buffer;
-    pIcon = nxagentWindowPtr(wmState.icon);
+    WindowPtr pIcon = nxagentWindowPtr(wmState.icon);
 
     if (pIcon || wmState.icon == None)
     {
@@ -956,15 +904,14 @@ void nxagentImportProperty(Window window,
     else if (wmState.icon)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentImportProperty: WARNING! Failed to convert remote window %ld"
-                  " importing property %ld of type WM_STATE", (long int) wmState.icon,
-                      (long int) property);
+      fprintf(stderr, "%s: WARNING! Failed to convert remote window [%ld] importing property [%ld]"
+                  " of type WM_STATE", __func__, (long int) wmState.icon, (long int) property);
       #endif
     }
   }
   else if (strcmp(typeS, "WM_HINTS") == 0)
   {
-    wmHints = *(nxagentWMHints*)buffer;
+    nxagentWMHints wmHints = *(nxagentWMHints*)buffer;
     output = (char*) &wmHints;
     import = True;
 
@@ -981,8 +928,8 @@ void nxagentImportProperty(Window window,
         wmHints.flags &= ~IconPixmapHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentImportProperty: WARNING! Failed to look up remote icon "
-                    "pixmap %d from hint importing property [%ld] type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up remote icon pixmap [%d] from hint importing"
+                    " property [%ld] type [%s] on window [%p].\n", __func__,
                         (unsigned int) wmHints.icon_pixmap, (long int) property,
                             typeS, (void *) pWin);
         #endif
@@ -1002,8 +949,8 @@ void nxagentImportProperty(Window window,
         wmHints.flags &= ~IconWindowHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentImportProperty: WARNING! Failed to look up remote icon "
-                    "window %x from hint importing property [%ld] type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up remote icon window [0x%x] from hint importing"
+                " property [%ld] type [%s] on window [%p].\n", __func__,
                          (unsigned int) wmHints.icon_window,
                              (long int) property, typeS, (void *) pWin);
         #endif
@@ -1023,8 +970,8 @@ void nxagentImportProperty(Window window,
         wmHints.flags &= ~IconMaskHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentImportProperty: WARNING! Failed to look up remote icon "
-                    "mask %x from hint importing property [%ld] type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up remote icon mask [0x%x] from hint importing"
+                    " property [%ld] type [%s] on window [%p].\n", __func__,
                           (unsigned int) wmHints.icon_mask, (long int) property, typeS, (void *) pWin);
         #endif
       }
@@ -1043,8 +990,8 @@ void nxagentImportProperty(Window window,
         wmHints.flags &= ~WindowGroupHint;
 
         #ifdef WARNING
-        fprintf(stderr, "nxagentImportProperty: WARNING! Failed to look up remote window "
-                    "group %x from hint importing property [%ld] type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up remote window group [0x%x] from hint importing"
+                    " property [%ld] type [%s] on window [%p].\n", __func__,
                           (unsigned int) wmHints.window_group,
                               (long int) property, typeS, (void *) pWin);
         #endif
@@ -1054,15 +1001,13 @@ void nxagentImportProperty(Window window,
   else if (strcmp(typeS, "ATOM") == 0)
   {
     Atom *atoms = malloc(nitems * sizeof(Atom));
-    Atom *input = (Atom*) buffer;
-    int i;
+    CARD32 *input = (CARD32*) buffer;
 
     if (atoms == NULL)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentImportProperty: WARNING! malloc() failed for '%s' - bailing out.\n", typeS);
+      fprintf(stderr, "%s: WARNING! malloc() failed for '[%s]' - bailing out.\n", __func__, typeS);
       #endif
-
       return;
     }
 
@@ -1070,14 +1015,14 @@ void nxagentImportProperty(Window window,
     import = True;
     output = (char *) atoms;
 
-    for (i = 0; i < nitems; i++)
+    for (int i = 0; i < nitems; i++)
     {
-      atoms[i] = nxagentRemoteToLocalAtom(input[i]);
+      atoms[i] = nxagentRemoteToLocalAtom((XlibAtom)input[i]);
 
       if (atoms[i] == None)
       {
         #ifdef WARNING
-        fprintf(stderr, "nxagentImportProperty: WARNING! Failed to convert remote atom %ld.\n",
+        fprintf(stderr, "%s: WARNING! Failed to convert remote atom [%ld].\n", __func__,
                     (long int) input[i]);
         #endif
       }
@@ -1088,21 +1033,19 @@ void nxagentImportProperty(Window window,
     Window *input = (Window*) buffer;
     Window *wind = malloc(nitems * sizeof(Window));
     WindowPtr pWindow;
-    int i;
 
     if (!wind)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentImportProperty: WARNING! malloc() failed for '%s' - bailing out.\n", typeS);
+      fprintf(stderr, "%s: WARNING! malloc() failed for '[%s]' - bailing out.\n", __func__, typeS);
       #endif
-
       return;
     }
     freeMem = True;
     import = True;
     output = (char*) wind;
 
-    for (i = 0; i < nitems; i++)
+    for (int i = 0; i < nitems; i++)
     {
       pWindow = nxagentWindowPtr(input[i]);
 
@@ -1113,8 +1056,8 @@ void nxagentImportProperty(Window window,
       else
       {
         #ifdef WARNING
-        fprintf(stderr, "nxagentImportProperty: WARNING! Failed to look up remote window %lx "
-                    "importing property [%ld] type %s on window %p.\n",
+        fprintf(stderr, "%s: WARNING! Failed to look up remote window [0x%lx] importing property [%ld]"
+                    " type [%s] on window [%p].\n", __func__,
                         (long int) input[i], (long int) property, typeS, (void*)pWin);
         #endif
 
@@ -1126,8 +1069,8 @@ void nxagentImportProperty(Window window,
   if (import)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentImportProperty: ChangeProperty "
-                "on window %lx property [%ld] type %s nitems %ld format %d\n",
+    fprintf(stderr, "%s: ChangeProperty on window [0x%x] property [%d] type [%s]"
+                " nitems [%ld] format [%d]\n", __func__,
                     window, property, typeS, nitems, format);
     #endif
 
@@ -1137,15 +1080,15 @@ void nxagentImportProperty(Window window,
   else
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentImportProperty: WARNING! Ignored ChangeProperty "
-                "on window %lx property [%ld] type %s ntems %ld format %d\n",
+    fprintf(stderr, "%s: WARNING! Ignored ChangeProperty on window [0x%x] property [%d] type [%s]"
+                " ntems [%ld] format [%d]\n", __func__,
                        window, property, validateString(typeS), nitems, format);
     #endif
   }
 
   if (freeMem)
   {
-    free(output);
+    SAFE_free(output);
   }
 
   return;
@@ -1153,18 +1096,18 @@ void nxagentImportProperty(Window window,
 
 /*
  * We want to import all properties changed by external clients to
- * reflect properties of our internal windows but we must ignore
- * all the property notify events generated by our own requests.
- * For this purpose we implement a FIFO to record every change pro-
- * perty request that we dispatch. In this way, when processing a
- * property notify, we can distinguish between the notifications
- * generated by our requests from those generated by other clients
- * connected to the real X server.
+ * reflect properties of our internal windows but we must ignore all
+ * the property notify events generated by our own requests.  For this
+ * purpose we implement a FIFO to record every change property request
+ * that we dispatch. In this way, when processing a property notify,
+ * we can distinguish between the notifications generated by our
+ * requests from those generated by other clients connected to the
+ * real X server.
  */
 
 struct nxagentPropertyRec{
   Window window;
-  Atom property;
+  XlibAtom property;
   struct nxagentPropertyRec *next;
 };
 
@@ -1183,7 +1126,7 @@ void nxagentRemovePropertyFromList(void)
   struct nxagentPropertyRec *tmp = nxagentPropertyList.first;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentRemovePropertyFromList: Property %ld on Window %lx to list, list size is %d.\n\n",
+  fprintf(stderr, "%s: Property [%d] on Window [0x%x] to list, list size is [%d].\n", __func__,
               nxagentPropertyList.first -> property, nxagentPropertyList.first -> window,
                  nxagentPropertyList.size);
   #endif
@@ -1197,7 +1140,7 @@ void nxagentRemovePropertyFromList(void)
       nxagentPropertyList.last = NULL;
     }
 
-    free(tmp);
+    SAFE_free(tmp);
   }
 }
 
@@ -1205,23 +1148,22 @@ void nxagentRemovePropertyFromList(void)
  * Add the record to the list.
  */
 
-void nxagentAddPropertyToList(Atom property, WindowPtr pWin)
+void nxagentAddPropertyToList(XlibAtom property, WindowPtr pWin)
 {
-  struct nxagentPropertyRec *tmp;
-
   if (NXDisplayError(nxagentDisplay) == 1)
   {
     return;
   }
 
-  if ((tmp = malloc(sizeof(struct nxagentPropertyRec))) == NULL)
+  struct nxagentPropertyRec *tmp = malloc(sizeof(struct nxagentPropertyRec));
+  if (tmp == NULL)
   {
-    FatalError("nxagentAddPropertyToList: malloc() failed.");
+    FatalError("%s: malloc() failed.", __func__);
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentAddPropertyToList: Adding record Property %ld - Window %lx[%p]"
-             "to list, list size is %d.\n", property, nxagentWindow(pWin), (void*) pWin,
+  fprintf(stderr, "%s: Adding record Property [%d] - Window [0x%x][%p] to list, list"
+              " size is [%d].\n", __func__, property, nxagentWindow(pWin), (void*) pWin,
                  nxagentPropertyList.size);
   #endif
 
@@ -1251,9 +1193,8 @@ void nxagentFreePropertyList(void)
 }
 
 /*
- * We are trying to distinguish notify generated by
- * an external client from those genarated by our
- * own requests.
+ * We are trying to distinguish notifications generated by an external
+ * client from those genarated by our own requests.
  */
 
 Bool nxagentNotifyMatchChangeProperty(void *p)
@@ -1262,17 +1203,17 @@ Bool nxagentNotifyMatchChangeProperty(void *p)
   XPropertyEvent *X = p;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentNotifyMatchChangeProperty: Property notify on window %lx property %ld.\n",
+  fprintf(stderr, "%s: Property notify on window [0x%lx] property [%ld].\n", __func__,
               X -> window, X -> atom);
 
   if (first)
   {
-    fprintf(stderr, "nxagentNotifyMatchChangeProperty: First element on list is window %lx property %ld list size is %d.\n",
+    fprintf(stderr, "%s: First element on list is window [0x%x] property [%d] list size is [%d].\n", __func__,
                 first -> window, first -> property, nxagentPropertyList.size);
   }
   else
   {
-    fprintf(stderr, "nxagentNotifyMatchChangeProperty: List is empty.\n");
+    fprintf(stderr, "%s: List is empty.\n", __func__);
   }
   #endif
 
@@ -1287,4 +1228,3 @@ Bool nxagentNotifyMatchChangeProperty(void *p)
 
   return True;
 }
-

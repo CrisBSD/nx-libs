@@ -245,6 +245,8 @@ static WindowPtr XYToWindow(
     int y
 );
 
+static Bool CheckMotion(xEvent *xE);
+
 extern int lastEvent;
 
 static Mask lastEventMask;
@@ -1214,10 +1216,14 @@ CheckGrabForSyncs(register DeviceIntPtr thisDev, Bool thisMode, Bool otherMode)
     ComputeFreezes();
 }
 
-#ifndef NXAGENT_SERVER
 void
-ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab, 
+#ifdef NXAGENT_SERVER
+xorg_ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab,
                     TimeStamp time, Bool autoGrab)
+#else
+ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab,
+                    TimeStamp time, Bool autoGrab)
+#endif
 {
     WindowPtr oldWin = (mouse->grab) ? mouse->grab->window
 				     : sprite.win;
@@ -1244,7 +1250,11 @@ ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab,
 }
 
 void
+#ifdef NXAGENT_SERVER
+xorg_DeactivatePointerGrab(register DeviceIntPtr mouse)
+#else
 DeactivatePointerGrab(register DeviceIntPtr mouse)
+#endif
 {
     register GrabPtr grab = mouse->grab;
     register DeviceIntPtr dev;
@@ -1266,7 +1276,6 @@ DeactivatePointerGrab(register DeviceIntPtr mouse)
 	FreeCursor(grab->cursor, (Cursor)0);
     ComputeFreezes();
 }
-#endif /* NXAGENT_SERVER */
 
 void
 ActivateKeyboardGrab(register DeviceIntPtr keybd, GrabPtr grab, TimeStamp time, Bool passive)
@@ -1427,7 +1436,11 @@ AllowSome(ClientPtr client, TimeStamp time, DeviceIntPtr thisDev, int newState)
 }
 
 int
+#ifdef NXAGENT_SERVER
+xorg_ProcAllowEvents(register ClientPtr client)
+#else
 ProcAllowEvents(register ClientPtr client)
+#endif
 {
     TimeStamp		time;
     DeviceIntPtr	mouse = inputInfo.pointer;
@@ -1901,7 +1914,17 @@ PointInBorderSize(WindowPtr pWin, int x, int y)
     return FALSE;
 }
 
-#ifndef NXAGENT_SERVER
+/* define XYWINDOWCALLBACK if your DDX provides this callback */
+
+static WindowPtr GetXYStartWindow(WindowPtr pWin);
+
+#ifndef XYWINDOWCALLBACK
+static WindowPtr GetXYStartWindow(WindowPtr pWin)
+{
+  return pWin;
+}
+#endif
+
 static WindowPtr 
 XYToWindow(int x, int y)
 {
@@ -1909,7 +1932,7 @@ XYToWindow(int x, int y)
     BoxRec		box;
 
     spriteTraceGood = 1;	/* root window still there */
-    pWin = ROOT->firstChild;
+    pWin = GetXYStartWindow(ROOT->firstChild);
     while (pWin)
     {
 	if ((pWin->mapped) &&
@@ -1936,10 +1959,8 @@ XYToWindow(int x, int y)
 	    if (spriteTraceGood >= spriteTraceSize)
 	    {
 		spriteTraceSize += 10;
-		Must_have_memory = TRUE; /* XXX */
-		spriteTrace = (WindowPtr *)realloc(
+		spriteTrace = realloc(
 		    spriteTrace, spriteTraceSize*sizeof(WindowPtr));
-		Must_have_memory = FALSE; /* XXX */
 	    }
 	    spriteTrace[spriteTraceGood++] = pWin;
 	    pWin = pWin->firstChild;
@@ -1949,8 +1970,8 @@ XYToWindow(int x, int y)
     }
     return spriteTrace[spriteTraceGood-1];
 }
-#endif /* NXAGENT_SERVER */
 
+#ifndef NXAGENT_SERVER
 static Bool
 CheckMotion(xEvent *xE)
 {
@@ -2015,6 +2036,7 @@ CheckMotion(xEvent *xE)
     }
     return TRUE;
 }
+#endif /* NXAGENT_SERVER */
 
 void
 WindowsRestructured()
@@ -2061,9 +2083,12 @@ void ReinitializeRootWindow(WindowPtr win, int xoff, int yoff)
 }
 #endif
 
-#ifndef NXAGENT_SERVER
 void
+#ifdef NXAGENT_SERVER
+xorg_DefineInitialRootWindow(register WindowPtr win)
+#else
 DefineInitialRootWindow(register WindowPtr win)
+#endif
 {
     register ScreenPtr pScreen = win->drawable.pScreen;
 
@@ -2103,7 +2128,6 @@ DefineInitialRootWindow(register WindowPtr win)
     }
 #endif
 }
-#endif /* NXAGENT_SERVER */
 
 /*
  * This does not take any shortcuts, and even ignores its argument, since
@@ -2451,11 +2475,9 @@ CheckPassiveGrabsOnWindow(
 	    {
 		if (device->sync.evcount < count)
 		{
-		    Must_have_memory = TRUE; /* XXX */
-		    device->sync.event = (xEvent *)realloc(device->sync.event,
-							    count*
-							    sizeof(xEvent));
-		    Must_have_memory = FALSE; /* XXX */
+		    device->sync.event = realloc(device->sync.event,
+						 count*
+						 sizeof(xEvent));
 		}
 		device->sync.evcount = count;
 		for (dxE = device->sync.event; --count >= 0; dxE++, xE++)
@@ -2623,10 +2645,8 @@ DeliverGrabbedEvent(register xEvent *xE, register DeviceIntPtr thisDev,
 	    FreezeThaw(thisDev, TRUE);
 	    if (thisDev->sync.evcount < count)
 	    {
-		Must_have_memory = TRUE; /* XXX */
-		thisDev->sync.event = (xEvent *)realloc(thisDev->sync.event,
-							 count*sizeof(xEvent));
-		Must_have_memory = FALSE; /* XXX */
+		thisDev->sync.event = realloc(thisDev->sync.event,
+					      count*sizeof(xEvent));
 	    }
 	    thisDev->sync.evcount = count;
 	    for (dxE = thisDev->sync.event; --count >= 0; dxE++, xE++)
@@ -3501,11 +3521,8 @@ SetInputFocus(
         if (depth > focus->traceSize)
         {
 	    focus->traceSize = depth+1;
-	    Must_have_memory = TRUE; /* XXX */
-	    focus->trace = (WindowPtr *)realloc(focus->trace,
-						 focus->traceSize *
-						 sizeof(WindowPtr));
-	    Must_have_memory = FALSE; /* XXX */
+	    focus->trace = realloc(focus->trace,
+				   focus->traceSize * sizeof(WindowPtr));
 	}
 	focus->traceGood = depth;
         for (pWin = focusWin, depth--; pWin; pWin = pWin->parent, depth--) 
@@ -3945,9 +3962,12 @@ CloseDownEvents(void)
   spriteTraceSize = 0;
 }
 
-#ifndef NXAGENT_SERVER
 int
+#ifdef NXAGENT_SERVER
+xorg_ProcSendEvent(ClientPtr client)
+#else
 ProcSendEvent(ClientPtr client)
+#endif
 {
     WindowPtr pWin;
     WindowPtr effectiveFocus = NullWindow; /* only set if dest==InputFocus */
@@ -4032,7 +4052,6 @@ ProcSendEvent(ClientPtr client)
 				    NullGrab, 0);
     return Success;
 }
-#endif /* NXAGENT_SERVER */
 
 int
 ProcUngrabKey(ClientPtr client)

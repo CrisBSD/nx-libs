@@ -49,6 +49,12 @@ is" without express or implied warranty.
 #define nxagentSetPrintGeometry(screen) \
     nxagentPrintGeometryFlags = (1 << (screen));
 
+#ifdef NXAGENT_ONSTART
+#ifdef XlibAtom
+extern XlibAtom nxagentReadyAtom;
+#endif
+#endif
+
 extern int nxagentClients;
 
 extern int nxagentAutoDisconnectTimeout;
@@ -135,6 +141,8 @@ void nxagentSetWMNormalHints(int, int, int);
 void nxagentSetWMNormalHintsMaxsize(ScreenPtr, int, int);
 
 void nxagentShadowSetRatio(float, float);
+
+void nxagentPropagateArtsdProperties(ScreenPtr pScreen, char *port);
 
 /*
  * Change window settings to adapt to a ratio.

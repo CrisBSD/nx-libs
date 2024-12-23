@@ -81,6 +81,20 @@ XkbSetExtension(DeviceIntPtr device, ProcessInputProc proc)
 			    proc,xkbUnwrapProc);
 }
 
+void
+XkbFreePrivates(DeviceIntPtr device)
+{
+    if (device &&
+      device->devPrivates &&
+      device->nPrivates > 0 &&
+      xkbDevicePrivateIndex != -1 &&
+      xkbDevicePrivateIndex < device->nPrivates)
+    {
+      free(device->devPrivates[xkbDevicePrivateIndex].ptr);
+      device->devPrivates[xkbDevicePrivateIndex].ptr = NULL;
+    }
+}
+
 #ifdef XINPUT
 extern	void	ProcessOtherEvent(
     xEvent *		/* xE */,
@@ -1026,10 +1040,10 @@ _XkbFilterDeviceBtn(	XkbSrvInfoPtr	xkbi,
 			unsigned	keycode,
 			XkbAction *	pAction)
 {
-DeviceIntPtr	dev;
-int		button;
-
     if (filter->keycode==0) {		/* initial press */
+	DeviceIntPtr	dev;
+	int		button;
+
 	dev= _XkbLookupButtonDevice(pAction->devbtn.device,NULL);
 	if ((!dev)||(!dev->public.on)||(&dev->public==LookupPointerDevice()))
 	    return 1;
@@ -1067,7 +1081,8 @@ int		button;
 	}
     }
     else if (filter->keycode==keycode) {
-	int	button;
+	DeviceIntPtr	dev;
+	int		button;
 
 	filter->active= 0;
 	dev= _XkbLookupButtonDevice(filter->upAction.devbtn.device,NULL);
@@ -1142,7 +1157,6 @@ XkbSrvInfoPtr	xkbi;
 KeyClassPtr	keyc;
 int		changed,sendEvent;
 Bool		genStateNotify;
-XkbStateRec	oldState;
 XkbAction	act;
 XkbFilterPtr	filter;
 Bool		keyEvent;
@@ -1157,7 +1171,7 @@ xkbDeviceInfoPtr xkbPrivPtr = XKBDEVICEINFO(dev);
     xkbi= keyc->xkbInfo;
     key= xE->u.u.detail;
     if ((xkbi->flags&_XkbStateNotifyInProgress)==0) {
-	oldState= xkbi->state;
+	xkbi->prev_state = xkbi->state;
 	xkbi->flags|= _XkbStateNotifyInProgress;
 	genStateNotify= True;
     }
@@ -1303,11 +1317,10 @@ xkbDeviceInfoPtr xkbPrivPtr = XKBDEVICEINFO(dev);
     else if (keyEvent)
 	FixKeyState(xE,dev);
 
-    xkbi->prev_state= oldState;
     XkbComputeDerivedState(xkbi);
     keyc->prev_state= keyc->state;
     keyc->state= XkbStateFieldFromRec(&xkbi->state);
-    changed = XkbStateChangedFlags(&oldState,&xkbi->state);
+    changed = XkbStateChangedFlags(&xkbi->prev_state,&xkbi->state);
     if (genStateNotify) {
 	if (changed) {
 	    xkbStateNotify	sn;

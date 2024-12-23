@@ -42,13 +42,6 @@ int nxagentGCTrap = 0;
 int nxagentScreenTrap = 0;
 
 /*
- * Set if we detected that our RENDER
- * implementation is faulty.
- */
-
-int nxagentRenderTrap = 0;
-
-/*
  * Set if we are executing a GC operation
  * only on the X side. Used to avoid
  * reentrancy in FB layer.
@@ -120,3 +113,11 @@ int nxagentXkbCapsTrap = 0;
 
 int nxagentXkbNumTrap = 0;
 
+
+/*
+ * Set to indicate we are processing a clipboard event triggered by
+ * the real X server. This is used to avoid endless loops if callbacks
+ * would trigger another event by the real X server
+ */
+
+int nxagentExternalClipboardEventTrap = 0;

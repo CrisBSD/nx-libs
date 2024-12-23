@@ -187,20 +187,10 @@ XkbDescPtr		xkb;
 unsigned		key,nG,explicit;
 KeySymsPtr		pCore;
 int			types[XkbNumKbdGroups];
-KeySym			tsyms[XkbMaxSymsPerKey],*syms;
+KeySym			tsyms[XkbMaxSymsPerKey] = {NoSymbol},*syms;
 XkbMapChangesPtr	mc;
 
     xkb= pXDev->key->xkbInfo->desc;
-#ifdef NOTYET
-    if (first<xkb->min_key_code) {
-	if (first>=XkbMinLegalKeyCode) {
-	    xkb->min_key_code= first;
-	    /* 1/12/95 (ef) -- XXX! should zero out the new maps */
-	    changes->map.changed|= XkbKeycodesMask;
-generate a NewKeyboard notify here?
-	}
-    }
-#endif
     if (first+num-1>xkb->max_key_code) {
 	/* 1/12/95 (ef) -- XXX! should allow XKB structures to grow */
 	num= xkb->max_key_code-first+1;
@@ -685,6 +675,10 @@ unsigned	act;
 	    else group= newGroup;
 	}
 	else {
+#ifdef NXAGENT_SERVER
+	  /* we have seen division by zero here */
+	  if (ctrls->num_groups != 0)
+#endif
 	    group%= ctrls->num_groups;
 	}
     }

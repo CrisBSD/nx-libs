@@ -30,6 +30,13 @@ CONFIGURE       ?= ./configure --prefix="$(PREFIX)"
 ifneq ($(shell pkg-config --exists xkbcomp && echo yes), yes)
     $(warning xkbcomp devel package missing, using imake default values)
 endif
+ifneq ($(shell pkg-config --exists fontutil && echo yes), yes)
+    $(warning fontutil devel package missing, using imake default values)
+endif
+
+ifneq "$(strip $(NX_VERSION_CUSTOM))" ""
+    CUSTOM_VERSION_DEFINE = NX_VERSION_CUSTOM="$(NX_VERSION_CUSTOM)"
+endif
 
 IMAKE_DEFINES	?=
 
@@ -67,6 +74,7 @@ clean: version imakeconfig
 	test -f nx-X11/lib/Makefile && ${MAKE} -C nx-X11/lib clean     || true
 	test -f nxcompshad/Makefile && ${MAKE} -C nxcompshad clean     || true
 	test -d nx-X11              && ${MAKE} clean-env               || true
+	test -f nxdialog/Makefile   && ${MAKE} -C nxdialog clean       || true
 
 distclean: clean version imakeconfig
 	test -f nxcomp/Makefile     && ${MAKE} -C nxcomp distclean     || true
@@ -74,6 +82,7 @@ distclean: clean version imakeconfig
 	test -f nx-X11/lib/Makefile && ${MAKE} -C nx-X11/lib distclean || true
 	test -f nxcompshad/Makefile && ${MAKE} -C nxcompshad distclean || true
 	test -d nx-X11              && ${MAKE} -C nx-X11 distclean     || true
+	test -f nxdialog/Makefile   && ${MAKE} -C nxdialog distclean   || true
 	test -x ./mesa-quilt        && ./mesa-quilt pop -a
 	$(RM_DIR_REC) nx-X11/extras/Mesa/.pc/
 	$(RM_FILE) nx-X11/config/cf/nxversion.def
@@ -91,6 +100,9 @@ version:
 	    -e 's/###NX_VERSION_PATCH###/$(shell ./version.sh 4)/' \
 	    nx-X11/config/cf/nxversion.def.in \
 	    > nx-X11/config/cf/nxversion.def
+ifneq "$(strip $(NX_VERSION_CUSTOM))" ""
+	echo '#define NX_VERSION_CUSTOM $(NX_VERSION_CUSTOM)' >>nx-X11/config/cf/nxversion.def
+endif
 
 imakeconfig:
 	# auto-config some setting
@@ -109,6 +121,8 @@ imakeconfig:
 	# prefix.)
 	(pkg-config --exists xkbcomp && echo "#define SystemXkbConfigDir `pkg-config xkbcomp --variable=xkbconfigdir`"; :) >>nx-X11/config/cf/nxconfig.def
 	(pkg-config --exists xkbcomp && echo "#define SystemXkbBinDir `pkg-config xkbcomp --variable=prefix`/bin"; :) >>nx-X11/config/cf/nxconfig.def
+
+	(pkg-config --exists fontutil && echo "#define SystemFontRootDir `pkg-config fontutil --variable=fontrootdir`"; :) >>nx-X11/config/cf/nxconfig.def
 
 	# let's create the nx-X11 Makefiles now, once everything has been defined
 	$(MAKE) -j1 -C nx-X11 Makefiles IMAKE_DEFINES="$(IMAKE_DEFINES)"
@@ -150,17 +164,17 @@ build-full: build-env
 # in the full case, we rely on "magic" in the nx-X11 imake-based makefiles...
 
 	# build nxcomp first
-	cd nxcomp && autoreconf -vfsi && (${CONFIGURE}) && ${MAKE}
+	cd nxcomp && autoreconf -vfsi && (${CONFIGURE} $(CUSTOM_VERSION_DEFINE)) && ${MAKE}
 
 	# build libNX_X11 second
-	cd nx-X11/lib && autoreconf -vfsi && (${CONFIGURE} --disable-poll) && ${MAKE}
+	cd nx-X11/lib && autoreconf -vfsi && (${CONFIGURE} $(CUSTOM_VERSION_DEFINE) --disable-poll) && ${MAKE}
 	mkdir -p nx-X11/exports/lib/
 	$(SYMLINK_FILE) ../../lib/src/.libs/libNX_X11.so nx-X11/exports/lib/libNX_X11.so
 	$(SYMLINK_FILE) ../../lib/src/.libs/libNX_X11.so.6 nx-X11/exports/lib/libNX_X11.so.6
 	$(SYMLINK_FILE) ../../lib/src/.libs/libNX_X11.so.6.3.0 nx-X11/exports/lib/libNX_X11.so.6.3.0
 
 	# build nxcompshad third
-	cd nxcompshad && autoreconf -vfsi && (${CONFIGURE}) && ${MAKE}
+	cd nxcompshad && autoreconf -vfsi && (${CONFIGURE} $(CUSTOM_VERSION_DEFINE)) && ${MAKE}
 
 	# build nxagent fourth
 	./mesa-quilt push -a
@@ -168,7 +182,10 @@ build-full: build-env
 	${MAKE} -C nx-X11 World USRLIBDIR="$(USRLIBDIR)" SHLIBDIR="$(SHLIBDIR)" IMAKE_DEFINES="$(IMAKE_DEFINES)"
 
 	# build nxproxy fifth
-	cd nxproxy && autoreconf -vfsi && (${CONFIGURE}) && ${MAKE}
+	cd nxproxy && autoreconf -vfsi && (${CONFIGURE} $(CUSTOM_VERSION_DEFINE)) && ${MAKE}
+
+	# "build" nxdialog last
+	cd nxdialog && autoreconf -vfsi && (${CONFIGURE}) && ${MAKE}
 
 build:
 	if ! test -d nx-X11; then \
@@ -193,9 +210,6 @@ install-full:
 
 	$(INSTALL_DIR) $(DESTDIR)$(BINDIR)/
 	$(INSTALL_PROGRAM) nx-X11/programs/Xserver/nxagent-relink $(DESTDIR)$(BINDIR)/nxagent
-
-	$(INSTALL_DIR) $(DESTDIR)$(PREFIX)/share/pixmaps
-	$(INSTALL_FILE) nx-X11/programs/Xserver/hw/nxagent/nxagent.xpm $(DESTDIR)$(PREFIX)/share/pixmaps
 
 	$(INSTALL_DIR) $(DESTDIR)$(PREFIX)/share/nx
 	$(INSTALL_FILE) nx-X11/programs/Xserver/Xext/SecurityPolicy $(DESTDIR)$(PREFIX)/share/nx
@@ -247,6 +261,9 @@ install-full:
 
 	$(MAKE) -C nx-X11/lib install
 
+	# install the nxdialog executable and its man page
+	$(MAKE) -C nxdialog install
+
 uninstall:
 	$(MAKE) uninstall-lite
 	[ ! -d nx-X11 ] || $(MAKE) uninstall-full
@@ -269,3 +286,5 @@ uninstall-full:
 
 	$(RM_DIR_REC) $(DESTDIR)$(NXLIBDIR)
 	$(RM_DIR_REC) $(DESTDIR)$(INCLUDEDIR)/nx
+
+	test -f nxdialog/Makefile && ${MAKE} -C nxdialog "$@"

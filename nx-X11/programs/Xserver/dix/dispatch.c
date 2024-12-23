@@ -213,16 +213,18 @@ UpdateCurrentTimeIf()
 	currentTime = systime;
 }
 
-#ifndef NXAGENT_SERVER
 void
-InitSelections()
+#ifdef NXAGENT_SERVER
+xorg_InitSelections(void)
+#else
+InitSelections(void)
+#endif
 {
     if (CurrentSelections)
 	free(CurrentSelections);
     CurrentSelections = (Selection *)NULL;
     NumCurrentSelections = 0;
 }
-#endif /* NXAGENT_SERVER */
 
 #undef SMART_DEBUG
 
@@ -389,7 +391,6 @@ Dispatch(void)
 	    }
 	    isItTimeToYield = FALSE;
  
-            requestingClient = client;
 	    start_tick = SmartScheduleTime;
 	    while (!isItTimeToYield)
 	    {
@@ -407,6 +408,9 @@ Dispatch(void)
 		}
 		/* now, finally, deal with client requests */
 
+		/* Update currentTime so request time checks, such as for input
+		 * device grabs, are calculated correctly */
+		UpdateCurrentTimeIf();
 	        result = ReadRequestFromClient(client);
 	        if (result <= 0) 
 	        {
@@ -416,12 +420,6 @@ Dispatch(void)
 	        }
 
 		client->sequence++;
-#ifdef DEBUG
-		if (client->requestLogIndex == MAX_REQUEST_LOG)
-		    client->requestLogIndex = 0;
-		client->requestLog[client->requestLogIndex] = MAJOROP;
-		client->requestLogIndex++;
-#endif
 		if (result > (maxBigRequestSize << 2))
 		    result = BadLength;
 		else
@@ -448,7 +446,6 @@ Dispatch(void)
 	    client = clients[clientReady[nready]];
 	    if (client)
 		client->smart_stop_tick = SmartScheduleTime;
-	    requestingClient = NULL;
 	}
 	dispatchException &= ~DE_PRIORITYCHANGE;
     }
@@ -925,7 +922,6 @@ ProcGetAtomName(register ClientPtr client)
     }
 }
 
-#ifndef NXAGENT_SERVER
 int
 ProcSetSelectionOwner(register ClientPtr client)
 {
@@ -1020,7 +1016,6 @@ ProcSetSelectionOwner(register ClientPtr client)
         return (BadAtom);
     }
 }
-#endif /* NXAGENT_SERVER */
 
 int
 ProcGetSelectionOwner(register ClientPtr client)
@@ -3483,11 +3478,14 @@ InitProcVectors(void)
  *  then killed again, the client is really destroyed.
  *********************/
 
-#ifndef NXAGENT_SERVER
 char dispatchExceptionAtReset = DE_RESET;
 
 void
-CloseDownClient(register ClientPtr client)
+#ifdef NXAGENT_SERVER
+xorg_CloseDownClient(ClientPtr client)
+#else
+CloseDownClient(ClientPtr client)
+#endif
 {
     Bool really_close_down = client->clientGone ||
 			     client->closeDownMode == DestroyAll;
@@ -3572,7 +3570,6 @@ CloseDownClient(register ClientPtr client)
 	    currentMaxClients--;
     }
 }
-#endif /* NXAGENT_SERVER */
 
 static void
 KillAllClients()
@@ -3622,9 +3619,6 @@ void InitClient(ClientPtr client, int i, void * ospriv)
     client->numSaved = 0;
     client->saveSet = (SaveSetElt *)NULL;
     client->noClientException = Success;
-#ifdef DEBUG
-    client->requestLogIndex = 0;
-#endif
     client->requestVector = InitialVector;
     client->osPrivate = ospriv;
     client->swapped = FALSE;
@@ -3652,9 +3646,12 @@ void InitClient(ClientPtr client, int i, void * ospriv)
     client->clientIds = NULL;
 }
 
-#ifndef NXAGENT_SERVER
 int
+#ifdef NXAGENT_SERVER
+xorg_InitClientPrivates(ClientPtr client)
+#else
 InitClientPrivates(ClientPtr client)
+#endif
 {
     register char *ptr;
     DevUnion *ppriv;
@@ -3698,7 +3695,6 @@ InitClientPrivates(ClientPtr client)
     }
     return 1;
 }
-#endif /* NXAGENT_SERVER */
 
 /************************
  * int NextAvailableClient(ospriv)
@@ -4161,7 +4157,10 @@ AddScreen(Bool (*pfnInit) (ScreenPtr /*pScreen */ ,
     pScreen->devPrivates = (DevUnion *)calloc(sizeof(DevUnion),
                                screenPrivateCount);
     if (!pScreen->devPrivates && screenPrivateCount)
+    {
+        free(pScreen);
         return -1;
+    }
 
     ret = init_screen(pScreen, i);
     if (ret != 0) {

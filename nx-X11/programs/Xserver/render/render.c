@@ -126,6 +126,11 @@ static int SProcRenderCreateConicalGradient (ClientPtr pClient);
 
 static int SProcRenderDispatch (ClientPtr pClient);
 
+#ifdef NXAGENT_SERVER
+static int xorg_ProcRenderDispatch (ClientPtr pClient);
+static int xorg_SProcRenderDispatch (ClientPtr pClient);
+#endif
+
 int	(*ProcRenderVector[RenderNumberRequests])(ClientPtr) = {
     ProcRenderQueryVersion,
     ProcRenderQueryPictFormats,
@@ -274,7 +279,13 @@ static int
 ProcRenderQueryVersion (ClientPtr client)
 {
     RenderClientPtr pRenderClient = GetRenderClient (client);
-    xRenderQueryVersionReply rep;
+    xRenderQueryVersionReply rep = {
+        .type = X_Reply,
+        .sequenceNumber = client->sequence,
+        .length = 0,
+        .majorVersion = SERVER_RENDER_MAJOR_VERSION,
+        .minorVersion = SERVER_RENDER_MINOR_VERSION
+    };
 
     REQUEST(xRenderQueryVersionReq);
 
@@ -283,12 +294,6 @@ ProcRenderQueryVersion (ClientPtr client)
     pRenderClient->major_version = stuff->majorVersion;
     pRenderClient->minor_version = stuff->minorVersion;
 
-    memset(&rep, 0, sizeof(xRenderQueryVersionReply));
-    rep.type = X_Reply;
-    rep.length = 0;
-    rep.sequenceNumber = client->sequence;
-    rep.majorVersion = SERVER_RENDER_MAJOR_VERSION;
-    rep.minorVersion = SERVER_RENDER_MINOR_VERSION;
     if (client->swapped) {
 	swaps(&rep.sequenceNumber);
 	swapl(&rep.length);
@@ -580,7 +585,7 @@ ProcRenderQueryPictIndexValues (ClientPtr client)
     num = pFormat->index.nvalues;
     rlength = (sizeof (xRenderQueryPictIndexValuesReply) + 
 	       num * sizeof(xIndexValue));
-    reply = (xRenderQueryPictIndexValuesReply *) malloc (rlength);
+    reply = (xRenderQueryPictIndexValuesReply *) calloc (1, rlength);
     if (!reply)
 	return BadAlloc;
 
@@ -1347,9 +1352,8 @@ ProcRenderCompositeGlyphs (ClientPtr client)
 	listsBase = (GlyphListPtr) malloc (nlist * sizeof (GlyphListRec));
 	if (!listsBase)
 	{
-	    free(glyphsBase);
-	    free(listsBase);
-
+	    if (glyphsBase != glyphsLocal)
+	        free(glyphsBase);
 	    return BadAlloc;
 	}
     }
@@ -1417,8 +1421,13 @@ ProcRenderCompositeGlyphs (ClientPtr client)
 	}
     }
     if (buffer > end)
+    {
+	if (glyphsBase != glyphsLocal)
+	    free(glyphsBase);
+	if (listsBase != listsLocal)
+	    free(listsBase);
 	return BadLength;
-
+    }
     CompositeGlyphs (stuff->op,
 		     pSrc,
 		     pDst,
@@ -1746,7 +1755,7 @@ ProcRenderQueryFilters (ClientPtr client)
     }
     len = ((nnames + 1) >> 1) + ((nbytesName + 3) >> 2);
     total_bytes = sizeof (xRenderQueryFiltersReply) + (len << 2);
-    reply = (xRenderQueryFiltersReply *) malloc (total_bytes);
+    reply = (xRenderQueryFiltersReply *) calloc (1, total_bytes);
     if (!reply)
 	return BadAlloc;
     aliases = (INT16 *) (reply + 1);
@@ -2018,10 +2027,15 @@ static int ProcRenderCreateConicalGradient (ClientPtr client)
 	return BadAlloc;
     return Success;
 }
+#endif /* NXAGENT_SERVER */
 
 
 static int
+#ifdef NXAGENT_SERVER
+xorg_ProcRenderDispatch (ClientPtr client)
+#else
 ProcRenderDispatch (ClientPtr client)
+#endif
 {
     REQUEST(xReq);
     
@@ -2030,7 +2044,6 @@ ProcRenderDispatch (ClientPtr client)
     else
 	return BadRequest;
 }
-#endif /* NXAGENT_SERVER */
 
 static int
 SProcRenderQueryVersion (ClientPtr client)
@@ -2602,9 +2615,12 @@ SProcRenderCreateConicalGradient (ClientPtr client)
     return (*ProcRenderVector[stuff->renderReqType]) (client);
 }
 
-#ifndef NXAGENT_SERVER
+#ifdef NXAGENT_SERVER
 static int
+xorg_SProcRenderDispatch (ClientPtr client)
+#else
 SProcRenderDispatch (ClientPtr client)
+#endif
 {
     REQUEST(xReq);
     
@@ -2613,7 +2629,6 @@ SProcRenderDispatch (ClientPtr client)
     else
 	return BadRequest;
 }
-#endif /* NXAGENT_SERVER */
 
 #ifdef PANORAMIX
 #include "panoramiX.h"

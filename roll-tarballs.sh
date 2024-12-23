@@ -172,8 +172,11 @@ else
     rm -f  "bin/nxagent"*
     rm -Rf "nxcompshad"*
     rm -Rf "nx-X11"*
+    rm -Rf "nxdialog"*
     rm -Rf "etc"*
-    rm -f  "generate-symbol-docs.sh"
+    rm -f  "mesa-quilt"
+    rm -f  "regenerate-symbol-docs.sh"
+    rm -f  "run-static-analysis.sh"
     rm -Rf "testscripts/"*nxagent*
     rm -Rf "testscripts/"slave*
     rm -Rf "doc/libNX_X11/"

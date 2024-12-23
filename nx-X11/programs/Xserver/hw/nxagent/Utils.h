@@ -44,6 +44,22 @@ static inline const char * validateString(const char *str) {
   return str ? str : "(null)";
 }
 
+/*
+ * nxagentChecksum used to be in Holder.c but was broken beyond
+ * repair. As Holder.c was removed we put it here as a stub until we
+ * need it for debugging.
+ */
+
+static inline const char *nxagentChecksum(char *data, int size)
+{
+  return "not_implemented";
+}
+
 #define SAFE_XFree(what) do {if (what) {XFree(what); what = NULL;}} while (0)
+#define SAFE_free(what) do {free(what); what = NULL;} while (0)
+
+/* some helper macros to produce a quoted string from other macros */
+#define QUOTEEXP(str) #str
+#define QUOTE(str) QUOTEEXP(str)
 
 #endif /* __Utils_H__ */

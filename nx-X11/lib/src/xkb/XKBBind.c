@@ -108,7 +108,21 @@ XKeycodeToKeysym(Display *dpy,
 
     _XkbCheckPendingRefresh(dpy, dpy->xkb_info);
 
+#ifdef NX_TRANS_SOCKET
+    /*
+       check again, we have seen cases where the connection broke
+       during CheckPendingEvents(), followed by a crash when accessing
+       dpy. See https://github.com/ArcticaProject/nx-libs/issues/801
+    */
+    if (_XkbUnavailable(dpy))
+        return _XKeycodeToKeysym(dpy, kc, col);
+#endif
+
     xkb = dpy->xkb_info->desc;
+#ifdef NX_TRANS_SOCKET
+    if (xkb == NULL)
+        return _XKeycodeToKeysym(dpy, kc, col);
+#endif
     if ((kc < xkb->min_key_code) || (kc > xkb->max_key_code))
         return NoSymbol;
 
@@ -165,7 +179,7 @@ XKeysymToKeycode(Display *dpy, KeySym ks)
         for (i = dpy->min_keycode; i <= dpy->max_keycode; i++) {
             if (j < (int) XkbKeyNumSyms(xkb, i)) {
                 gotOne = 1;
-                if ((XkbKeySym(xkb, i, j) == ks))
+                if (XkbKeySym(xkb, i, j) == ks)
                     return i;
             }
         }

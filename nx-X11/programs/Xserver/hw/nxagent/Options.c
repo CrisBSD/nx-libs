@@ -34,10 +34,9 @@
 #include "Utils.h"
 
 /*
- * Instead of having a single options repository
- * data could be attached to the display or the
- * screen. The macro nxagentOption() should make
- * the transition simple.
+ * Instead of having a single options repository data could be
+ * attached to the display or the screen. The macro nxagentOption()
+ * should make the transition simple.
  */
 
 AgentOptionsRec nxagentOptions;
@@ -52,8 +51,8 @@ AgentOptionsPtr nxagentOptionsPtr = &nxagentOptions;
 
 unsigned int nxagentPrintGeometryFlags = 0;
 /*
- * This must be called at startup to initialize
- * the options repository to the default values.
+ * This must be called at startup to initialize the options repository
+ * to the default values.
  */
 
 void nxagentInitOptions(void)
@@ -108,15 +107,7 @@ void nxagentInitOptions(void)
   nxagentOptions.ViewportXSpan = 0;
   nxagentOptions.ViewportYSpan = 0;
 
-  #ifndef __CYGWIN32__
-
   nxagentOptions.DesktopResize = 1;
-
-  #else
-
-  nxagentOptions.DesktopResize = 0;
-
-  #endif
 
   nxagentOptions.Ratio  = DONT_SCALE;
   nxagentOptions.XRatio = DONT_SCALE;
@@ -133,7 +124,6 @@ void nxagentInitOptions(void)
 
   nxagentOptions.Xdmcp = 0;
 
-  nxagentOptions.DisplayLatency = 0;
   nxagentOptions.DisplayBuffer  = UNDEFINED;
   nxagentOptions.DisplayCoalescence = 0;
 
@@ -172,15 +162,15 @@ void nxagentInitOptions(void)
   nxagentOptions.ReconnectTolerance = DEFAULT_TOLERANCE;
 
   nxagentOptions.KeycodeConversion = DEFAULT_KEYCODE_CONVERSION;
+
+  nxagentOptions.AutoGrab = False;
 }
 
 /*
- * This is called at session reconnection
- * to reset some options to their default
- * values. The reason to avoid calling the
- * nxagentInitOptions() is that not all the
- * options can change value when reconnec-
- * ting.
+ * This is called at session reconnection to reset some options to
+ * their default values. The reason to avoid calling the
+ * nxagentInitOptions() is that not all the options can change value
+ * when reconnecting.
  */
 
 void nxagentResetOptions(void)
